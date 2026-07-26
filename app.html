@@ -140,7 +140,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · v0.4 — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.5</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -149,7 +149,10 @@
   <header>
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
-      <button id="btnLogout">Salir</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.5</span>
+        <button id="btnLogout">Salir</button>
+      </div>
     </div>
     <div class="disp-lbl">Disponible para gastar (sin tocar el ahorro)</div>
     <div class="disp-v num" id="dispV">$ 0</div>
@@ -236,7 +239,7 @@
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · v0.4 · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.5</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -251,7 +254,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo');
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.5';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -471,6 +474,7 @@ function demo(){
   const vencs=[{concepto:'Plan Ganancias (AFIP)',cuentas:{nombre:'BBVA'},monto:84500,vence:'2026-08-16',estado:'pendiente'},{concepto:'IVA · DDJJ',cuentas:{nombre:'Santander'},monto:512480,vence:'2026-08-20',estado:'pendiente'}];
   return {accts,movs,cats,vencs};
 }
+document.querySelectorAll('.appver').forEach(e=>e.textContent=VERSION);
 boot();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));}</script>
