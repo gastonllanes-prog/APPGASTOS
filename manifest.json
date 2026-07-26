@@ -1,0 +1,14 @@
+{
+  "name": "Caja · Finanzas + IVA",
+  "short_name": "Caja",
+  "description": "Tu economía y tu IVA, en control.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1ee",
+  "theme_color": "#0b6b5b",
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

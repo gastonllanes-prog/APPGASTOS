@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Caja</title>
+<meta name="theme-color" content="#0b6b5b">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --ink:#14201d;--ink-2:#556661;--ink-3:#93a09b;
+    --canvas:#eef1ee;--surface:#fff;--surface-2:#f5f7f5;--line:#e2e7e3;
+    --brand:#0b6b5b;--brand-ink:#0a5245;--brand-wash:#e6f2ef;
+    --personal:#5b5bd6;--personal-wash:#ecebfb;
+    --pos:#0e7c4a;--neg:#d03b3b;--gold:#9a6a00;--gold-wash:#f6efdd;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(20,32,29,.04),0 8px 24px -12px rgba(20,32,29,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--canvas);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.4}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit}
+  .hide{display:none!important}
+  .wrap{max-width:560px;margin:0 auto;min-height:100vh;background:var(--canvas);position:relative;padding-bottom:20px}
+
+  #banner{position:fixed;top:0;left:0;right:0;z-index:100;padding:11px 16px;font-size:.82rem;font-weight:600;color:#fff;text-align:center;transform:translateY(-100%);transition:.25s}
+  #banner.show{transform:translateY(0)}
+  #banner.err{background:var(--neg)} #banner.ok{background:var(--pos)}
+
+  /* login */
+  .login{padding:56px 26px;display:flex;flex-direction:column;min-height:100vh;justify-content:center}
+  .logo{width:56px;height:56px;border-radius:15px;background:linear-gradient(145deg,var(--brand),#0e8a74);display:grid;place-items:center;color:#fff;font-weight:800;font-size:1.7rem;box-shadow:0 10px 22px -8px rgba(11,107,91,.6);margin-bottom:22px}
+  .login h1{font-size:1.7rem;letter-spacing:-.03em;font-weight:750}
+  .login p{color:var(--ink-2);font-size:.92rem;margin-top:7px;margin-bottom:26px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.76rem;font-weight:650;color:var(--ink-2);margin-bottom:6px}
+  .field input{width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:12px;font-size:1rem;background:var(--surface)}
+  .field input:focus{outline:2px solid var(--brand);border-color:var(--brand)}
+  .btn{width:100%;padding:14px;border:0;border-radius:12px;font-size:.95rem;font-weight:700;background:var(--brand);color:#fff;box-shadow:0 8px 18px -8px rgba(11,107,91,.55)}
+  .btn:disabled{opacity:.5}
+
+  /* app header */
+  header{background:linear-gradient(155deg,#0b6b5b,#0a5245);color:#fff;padding:20px 20px 22px;border-radius:0 0 24px 24px}
+  .h-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .h-top .hi{font-size:.95rem;font-weight:650}
+  .h-top .hi span{display:block;font-size:.7rem;opacity:.8;font-weight:400}
+  .h-top button{background:rgba(255,255,255,.16);border:0;color:#fff;font-size:.72rem;font-weight:600;padding:7px 12px;border-radius:9px}
+  .bal-lbl{font-size:.74rem;opacity:.85}
+  .bal-v{font-size:2.05rem;font-weight:780;letter-spacing:-.04em;margin-top:2px}
+  .h-split{display:flex;gap:12px;margin-top:16px}
+  .h-split .c{flex:1;background:rgba(255,255,255,.12);border-radius:13px;padding:11px 13px}
+  .h-split .k{font-size:.66rem;opacity:.85} .h-split .n{font-size:1.02rem;font-weight:700;margin-top:2px}
+
+  /* nav */
+  .nav{display:flex;gap:6px;margin:16px 16px 0;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:5px;box-shadow:var(--shadow)}
+  .nav button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-size:.85rem;font-weight:650;color:var(--ink-2)}
+  .nav button.on{background:var(--brand);color:#fff}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .pad{padding:16px}
+  .block{margin:16px 16px 0}
+
+  /* add */
+  .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
+  .seg button{flex:1;border:0;background:transparent;padding:9px;border-radius:8px;font-size:.82rem;font-weight:650;color:var(--ink-2)}
+  .seg button.on{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .seg button.on.gasto{color:var(--neg)} .seg button.on.ing{color:var(--pos)}
+  .amt{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 14px}
+  .amt .cur{font-size:1.15rem;color:var(--ink-3);font-weight:700}
+  .amt input{border:0;font-size:2.5rem;font-weight:780;letter-spacing:-.04em;width:100%;text-align:center;background:transparent;color:var(--ink)}
+  .amt input:focus{outline:0}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{font-size:.78rem;font-weight:600;padding:8px 12px;border-radius:20px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .lbl{font-size:.72rem;font-weight:650;color:var(--ink-2);margin:0 2px 6px}
+  .rowf{display:flex;gap:10px;margin-bottom:14px}
+  .rowf > *{flex:1}
+  .scope{display:flex;gap:8px;margin-bottom:14px}
+  .scope button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:10px;font-size:.78rem;font-weight:650;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:7px}
+  .scope button.on{border-color:var(--personal);background:var(--personal-wash);color:var(--personal)}
+  .scope button.on.act{border-color:var(--brand);background:var(--brand-wash);color:var(--brand-ink)}
+  .dot{width:8px;height:8px;border-radius:50%}
+  input.txt,select.txt{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:.9rem;background:var(--surface);color:var(--ink)}
+  .save{width:100%;padding:14px;border:0;border-radius:12px;font-size:.92rem;font-weight:700;color:#fff}
+
+  .sect{display:flex;justify-content:space-between;align-items:center;padding:20px 20px 8px}
+  .sect .t{font-size:.92rem;font-weight:700}
+  .sect .f{font-size:.74rem;color:var(--ink-3)}
+  .list{margin:0 16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+  .li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--surface-2)}
+  .li:first-child{border-top:0}
+  .li .ic{width:38px;height:38px;border-radius:11px;background:var(--surface-2);display:grid;place-items:center;font-size:1rem;flex:none}
+  .li .mm{flex:1;min-width:0}
+  .li .mm .t{font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .mm .s{font-size:.72rem;color:var(--ink-3);margin-top:1px;display:flex;gap:6px;align-items:center}
+  .tagx{font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:5px}
+  .tagx.a{background:var(--brand-wash);color:var(--brand-ink)} .tagx.p{background:var(--personal-wash);color:var(--personal)}
+  .li .amt2{font-size:.92rem;font-weight:750;white-space:nowrap}
+  .li .amt2.pos{color:var(--pos)}
+  .li .del{background:transparent;border:0;color:var(--ink-3);font-size:1.1rem;padding:2px 4px;margin-left:2px}
+  .empty{padding:30px 20px;text-align:center;color:var(--ink-3);font-size:.86rem}
+  .empty .e{font-size:1.8rem;display:block;margin-bottom:8px}
+
+  /* cuentas */
+  .acc{display:flex;align-items:center;gap:12px;padding:14px;border-top:1px solid var(--surface-2)}
+  .acc:first-child{border-top:0}
+  .acc .ai{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:1.1rem;flex:none}
+  .acc .an{flex:1;min-width:0}
+  .acc .an .t{font-size:.9rem;font-weight:650}
+  .acc .an .s{font-size:.72rem;color:var(--ink-3);text-transform:capitalize}
+  .acc .av{font-size:1rem;font-weight:750;text-align:right;white-space:nowrap}
+  .acc .av.neg{color:var(--neg)}
+  .foot{text-align:center;color:var(--ink-3);font-size:.68rem;padding:20px}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #status{font-size:.78rem;color:var(--ink-2);margin-top:14px;min-height:1.2em;text-align:center}
+</style>
+</head>
+<body>
+<div id="banner"></div>
+
+<!-- LOGIN -->
+<div class="wrap hide" id="loginView">
+  <div class="login">
+    <div class="logo">C</div>
+    <h1>Caja</h1>
+    <p>Tu economía y tu IVA, en un solo lugar. Ingresá para empezar.</p>
+    <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" value="gaston.llanes@gmail.com" placeholder="vos@email.com"></div>
+    <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn" id="btnLogin">Entrar</button>
+    <div id="status"></div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · v0.3 — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="wrap hide" id="appView">
+  <header>
+    <div class="h-top">
+      <div class="hi">Hola<span id="userEmail">—</span></div>
+      <button id="btnLogout">Salir</button>
+    </div>
+    <div class="bal-lbl">Patrimonio total (suma de cuentas)</div>
+    <div class="bal-v num" id="patrimonio">$ 0</div>
+    <div class="h-split">
+      <div class="c"><div class="k" id="mesLbl">Ingresos del mes</div><div class="n num" id="sumIng">$ 0</div></div>
+      <div class="c"><div class="k">Gastos del mes</div><div class="n num" id="sumGas">$ 0</div></div>
+    </div>
+  </header>
+
+  <div class="nav">
+    <button id="navCargar" class="on">Cargar</button>
+    <button id="navCuentas">Cuentas</button>
+  </div>
+
+  <!-- VIEW: CARGAR -->
+  <div id="viewCargar">
+    <div class="card block pad">
+      <div class="seg">
+        <button id="tGasto" class="on gasto" data-tipo="gasto">Gasto</button>
+        <button id="tIngreso" data-tipo="ingreso">Ingreso</button>
+      </div>
+      <div class="amt"><span class="cur">$</span><input id="monto" inputmode="decimal" placeholder="0"></div>
+      <div class="chips" id="chips"></div>
+      <div class="lbl">Cuenta</div>
+      <select class="txt" id="cuentaSel" style="margin-bottom:14px"></select>
+      <div class="rowf">
+        <input class="txt" id="desc" type="text" placeholder="Detalle (opcional)">
+        <input class="txt" id="fecha" type="date">
+      </div>
+      <div class="scope">
+        <button id="sPersonal" class="on" data-a="personal"><span class="dot" style="background:var(--personal)"></span>Personal</button>
+        <button id="sActividad" data-a="actividad"><span class="dot" style="background:var(--brand)"></span>Actividad</button>
+      </div>
+      <button class="save" id="btnSave" style="background:var(--neg)">Guardar gasto</button>
+    </div>
+
+    <div class="sect"><span class="t">Últimos movimientos</span><span class="f" id="cntMov">—</span></div>
+    <div class="list" id="list"><div class="empty"><span class="e">⏳</span>Cargando…</div></div>
+  </div>
+
+  <!-- VIEW: CUENTAS -->
+  <div id="viewCuentas" class="hide">
+    <div class="sect"><span class="t">Mis cuentas</span><span class="f">saldo actual</span></div>
+    <div class="list" id="accList"><div class="empty"><span class="e">🏦</span>Cargando…</div></div>
+
+    <div class="card block pad">
+      <div class="lbl" style="font-size:.86rem;font-weight:700;color:var(--ink);margin-bottom:12px">Agregar cuenta</div>
+      <input class="txt" id="accNombre" type="text" placeholder="Nombre (ej: Banco Galicia, Mercado Pago, Efectivo)" style="margin-bottom:10px">
+      <div class="rowf">
+        <select class="txt" id="accTipo">
+          <option value="banco">🏦 Banco</option>
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="tarjeta">💳 Tarjeta</option>
+          <option value="inversion">📈 Inversión</option>
+        </select>
+        <input class="txt" id="accSaldo" inputmode="decimal" placeholder="Saldo inicial $">
+      </div>
+      <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
+      <div style="font-size:.7rem;color:var(--ink-3);margin-top:10px">El efectivo que se reparten sin factura: creá una cuenta "Efectivo" y cargá ahí esos movimientos como Personal.</div>
+    </div>
+  </div>
+
+  <div class="foot">Caja · v0.3 · conectado a tu Supabase</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = "https://chrbcnmnhraelnzekhtr.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
+
+const DEFAULT_CATS = [
+  {nombre:'Insumos/mercadería',emoji:'🛒',tipo:'gasto'},{nombre:'Combustible',emoji:'⛽',tipo:'gasto'},
+  {nombre:'Servicios',emoji:'🏠',tipo:'gasto'},{nombre:'Impuestos',emoji:'🏛️',tipo:'gasto'},
+  {nombre:'Alquiler',emoji:'🔑',tipo:'gasto'},{nombre:'Comida',emoji:'🍽️',tipo:'gasto'},
+  {nombre:'Sueldos/retiros',emoji:'👥',tipo:'gasto'},{nombre:'Honorarios/ventas',emoji:'💼',tipo:'ingreso'},
+  {nombre:'Otros',emoji:'•',tipo:'ambos'},
+];
+const ACC_EMO = {banco:'🏦',efectivo:'💵',tarjeta:'💳',inversion:'📈'};
+
+let db, session=null, cats=[], accounts=[], state={tipo:'gasto',ambito:'personal',catId:null};
+const $ = id => document.getElementById(id);
+const money = n => '$ ' + Math.round(n).toLocaleString('es-AR');
+function banner(msg, ok=false){ const b=$('banner'); b.textContent=msg; b.className=(ok?'ok':'err')+' show'; setTimeout(()=>b.className=b.className.replace('show',''), ok?2200:5000); const s=$('status'); if(s){ s.textContent=msg; s.style.color=ok?'var(--pos)':'var(--neg)'; } }
+
+try{ db = supabase.createClient(SUPA_URL, SUPA_KEY); }catch(e){}
+
+async function boot(){
+  if(!db){ showLogin(); banner('No cargó la librería. Revisá internet y recargá.'); return; }
+  try{ const { data } = await db.auth.getSession();
+    if(data.session){ session=data.session; await enterApp(); } else showLogin();
+  }catch(e){ showLogin(); banner('No pude conectar. Recargá.'); }
+}
+function showLogin(){ $('loginView').classList.remove('hide'); $('appView').classList.add('hide'); }
+
+$('btnLogin').onclick = ()=>auth();
+// En el celular, el botón "Ir/Enter" del teclado también entra
+['email','pass'].forEach(id=>{const el=$(id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();auth();}});});
+async function auth(){
+  const email=$('email').value.trim(), password=$('pass').value;
+  if(!email||!password){ banner('Completá email y contraseña.'); return; }
+  const btn=$('btnLogin'), prev=btn.textContent; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  try{ const res = await db.auth.signInWithPassword({email,password});
+    if(res.error) throw res.error;
+    session=res.data.session; await enterApp();
+  }catch(e){ const m=(e.message||'').toLowerCase();
+    if(m.includes('invalid login')) banner('Email o contraseña incorrectos.');
+    else banner('Error: '+(e.message||e));
+  }finally{ btn.disabled=false; btn.textContent=prev; }
+}
+$('btnLogout').onclick = async ()=>{ await db.auth.signOut(); location.reload(); };
+
+// nav
+$('navCargar').onclick=()=>switchView('cargar');
+$('navCuentas').onclick=()=>switchView('cuentas');
+function switchView(v){
+  $('navCargar').className = v==='cargar'?'on':''; $('navCuentas').className = v==='cuentas'?'on':'';
+  $('viewCargar').classList.toggle('hide', v!=='cargar'); $('viewCuentas').classList.toggle('hide', v!=='cuentas');
+}
+
+async function enterApp(){
+  $('loginView').classList.add('hide'); $('appView').classList.remove('hide');
+  $('userEmail').textContent = session.user.email;
+  $('fecha').valueAsDate = new Date();
+  $('mesLbl').textContent = 'Ingresos de '+new Date().toLocaleDateString('es-AR',{month:'long'});
+  await ensureCats(); await loadAccounts(); renderChips();
+  await refresh();
+}
+
+async function ensureCats(){
+  let { data, error } = await db.from('categorias').select('*').order('nombre');
+  if(error){ banner('No pude leer categorías: '+error.message); return; }
+  if(!data || data.length===0){
+    const rows = DEFAULT_CATS.map(c=>({...c, user_id:session.user.id}));
+    const ins = await db.from('categorias').insert(rows).select();
+    if(ins.error) banner('No pude crear categorías: '+ins.error.message);
+    data = ins.data||[];
+  }
+  cats = data;
+}
+function renderChips(){
+  const box=$('chips'); box.innerHTML='';
+  const list = cats.filter(c=> c.tipo===state.tipo || c.tipo==='ambos');
+  if(!state.catId && list[0]) state.catId=list[0].id;
+  if(!list.find(c=>c.id===state.catId) && list[0]) state.catId=list[0].id;
+  list.forEach(c=>{ const b=document.createElement('button'); b.className='chip'+(c.id===state.catId?' on':'');
+    b.innerHTML=(c.emoji?c.emoji+' ':'')+c.nombre; b.onclick=()=>{ state.catId=c.id; renderChips(); }; box.appendChild(b); });
+}
+
+// ---- cuentas ----
+async function loadAccounts(){
+  const { data, error } = await db.from('cuentas').select('*').eq('archivada',false).order('created_at');
+  if(error){ banner('No pude leer cuentas: '+error.message); return; }
+  accounts = data||[];
+  const sel=$('cuentaSel'); sel.innerHTML='';
+  if(!accounts.length){ const o=document.createElement('option'); o.value=''; o.textContent='(agregá una cuenta primero)'; sel.appendChild(o); }
+  accounts.forEach(a=>{ const o=document.createElement('option'); o.value=a.id; o.textContent=(ACC_EMO[a.tipo]||'')+' '+a.nombre; sel.appendChild(o); });
+}
+$('btnAddAcc').onclick = async ()=>{
+  const nombre=$('accNombre').value.trim(); const tipo=$('accTipo').value;
+  const saldo=parseFloat(($('accSaldo').value||'0').replace(/\./g,'').replace(',','.'))||0;
+  if(!nombre){ banner('Ponele un nombre a la cuenta.'); return; }
+  const btn=$('btnAddAcc'), prev=btn.textContent; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  const { error } = await db.from('cuentas').insert({ user_id:session.user.id, nombre, tipo, saldo, moneda:'ARS' });
+  btn.disabled=false; btn.textContent=prev;
+  if(error){ banner('No se pudo crear: '+error.message); return; }
+  banner('Cuenta creada ✓', true); $('accNombre').value=''; $('accSaldo').value='';
+  await loadAccounts(); await refresh();
+};
+
+// ---- toggles ----
+function setTipo(t){ state.tipo=t; state.catId=null;
+  $('tGasto').className=''; $('tIngreso').className='';
+  if(t==='gasto'){ $('tGasto').className='on gasto'; $('btnSave').textContent='Guardar gasto'; $('btnSave').style.background='var(--neg)'; }
+  else { $('tIngreso').className='on ing'; $('btnSave').textContent='Guardar ingreso'; $('btnSave').style.background='var(--pos)'; }
+  renderChips();
+}
+$('tGasto').onclick=()=>setTipo('gasto'); $('tIngreso').onclick=()=>setTipo('ingreso');
+function setAmbito(a){ state.ambito=a; $('sPersonal').className=a==='personal'?'on':''; $('sActividad').className=a==='actividad'?'on act':''; }
+$('sPersonal').onclick=()=>setAmbito('personal'); $('sActividad').onclick=()=>setAmbito('actividad');
+
+// ---- guardar movimiento ----
+$('btnSave').onclick = async ()=>{
+  const raw = $('monto').value.replace(/\./g,'').replace(',','.'); const monto = parseFloat(raw);
+  if(!monto || monto<=0){ banner('Poné un monto válido.'); return; }
+  const btn=$('btnSave'), prev=btn.textContent; btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  const row = { user_id:session.user.id, tipo:state.tipo, monto, ambito:state.ambito,
+    categoria_id:state.catId, cuenta_id:$('cuentaSel').value||null,
+    descripcion:$('desc').value.trim()||null, fecha:$('fecha').value };
+  const { error } = await db.from('movimientos').insert(row);
+  btn.disabled=false; btn.textContent=prev;
+  if(error){ banner('No se guardó: '+error.message); return; }
+  banner('Guardado ✓', true); $('monto').value=''; $('desc').value='';
+  await refresh();
+};
+
+// ---- refrescar ----
+async function refresh(){
+  const now=new Date(); const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  const { data:movs, error } = await db.from('movimientos')
+    .select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).order('created_at',{ascending:false}).limit(200);
+  if(error){ banner('No pude leer movimientos: '+error.message); return; }
+  const all = movs||[];
+  // totales del mes
+  let ing=0,gas=0; all.forEach(m=>{ if(m.fecha>=first){ if(m.tipo==='ingreso') ing+=+m.monto; else if(m.tipo==='gasto') gas+=+m.monto; } });
+  $('sumIng').textContent=money(ing); $('sumGas').textContent=money(gas);
+  // saldos por cuenta = saldo inicial + ingresos - gastos
+  const bal={}; accounts.forEach(a=> bal[a.id]=+a.saldo);
+  all.forEach(m=>{ if(m.cuenta_id && bal[m.cuenta_id]!==undefined){ bal[m.cuenta_id]+= (m.tipo==='ingreso'?+m.monto:-m.monto); } });
+  const patr = accounts.reduce((s,a)=> s + (bal[a.id]||0), 0);
+  $('patrimonio').textContent = money(patr);
+  renderAccounts(bal);
+  $('cntMov').textContent = all.length+' movs';
+  renderList(all.slice(0,60));
+}
+function renderAccounts(bal){
+  const box=$('accList');
+  if(!accounts.length){ box.innerHTML='<div class="empty"><span class="e">🏦</span>Todavía no tenés cuentas.<br>Agregá tu primera abajo 👇</div>'; return; }
+  box.innerHTML='';
+  accounts.forEach(a=>{ const b=bal[a.id]!==undefined?bal[a.id]:+a.saldo;
+    const el=document.createElement('div'); el.className='acc';
+    el.innerHTML=`<div class="ai" style="background:var(--surface-2)">${ACC_EMO[a.tipo]||'💠'}</div>
+      <div class="an"><div class="t">${esc(a.nombre)}</div><div class="s">${a.tipo}</div></div>
+      <div class="av ${b<0?'neg':''} num">${money(b)}</div>`;
+    box.appendChild(el);
+  });
+}
+function renderList(movs){
+  const box=$('list');
+  if(!movs.length){ box.innerHTML='<div class="empty"><span class="e">📭</span>Todavía no cargaste nada.<br>Sumá tu primer movimiento arriba.</div>'; return; }
+  box.innerHTML='';
+  const accById={}; accounts.forEach(a=>accById[a.id]=a.nombre);
+  movs.forEach(m=>{ const cat=m.categorias||{}; const isIng=m.tipo==='ingreso';
+    const el=document.createElement('div'); el.className='li';
+    const acc = m.cuenta_id&&accById[m.cuenta_id]? ' · '+esc(accById[m.cuenta_id]) : '';
+    el.innerHTML=`<div class="ic">${cat.emoji||(isIng?'💰':'💸')}</div>
+      <div class="mm"><div class="t">${cat.nombre||(isIng?'Ingreso':'Gasto')}${m.descripcion?' · '+esc(m.descripcion):''}</div>
+      <div class="s">${fdate(m.fecha)}${acc} <span class="tagx ${m.ambito==='actividad'?'a':'p'}">${m.ambito}</span></div></div>
+      <div class="amt2 ${isIng?'pos':''} num">${isIng?'+':'–'}${money(m.monto)}</div>
+      <button class="del" title="Borrar">✕</button>`;
+    el.querySelector('.del').onclick=async()=>{ if(!confirm('¿Borrar este movimiento?'))return;
+      const {error}=await db.from('movimientos').delete().eq('id',m.id);
+      if(error) banner('No se pudo borrar: '+error.message); else { banner('Borrado',true); refresh(); } };
+    box.appendChild(el);
+  });
+}
+const esc = s => String(s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+function fdate(d){ const x=new Date(d+'T00:00:00'); return x.toLocaleDateString('es-AR',{day:'2-digit',month:'short'}); }
+
+boot();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));}</script>
+</body>
+</html>
