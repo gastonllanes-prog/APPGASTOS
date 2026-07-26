@@ -88,6 +88,11 @@
   .pill2{display:flex;gap:8px;margin-bottom:12px}
   .pill2 button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px;font-size:.82rem;font-weight:650;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:7px}
   .pill2 button.on{border-color:var(--brand);background:var(--brand-wash);color:var(--brand-ink)}
+  .pmgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .pmgrid button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;font-size:.82rem;font-weight:650;color:var(--ink-2)}
+  .pmgrid button.on{border-color:var(--brand);background:var(--brand-wash);color:var(--brand-ink)}
+  .acctchip{display:block!important;width:100%;text-align:left}
+  .acctchip.on{background:var(--brand)!important;border-color:var(--brand)!important;color:#fff!important}
   .cardchips,.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
   .chip{font-size:.76rem;font-weight:600;padding:8px 11px;border-radius:20px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2)}
   .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -140,7 +145,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.6</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.7</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -150,7 +155,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.6</span>
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.7</span>
         <button id="btnLogout">Salir</button>
       </div>
     </div>
@@ -182,9 +187,11 @@
       <div class="amt"><span class="cur">$</span><input id="monto" inputmode="decimal" placeholder="0"></div>
 
       <div class="qlabel">¿Cómo lo pagaste?</div>
-      <div class="pill2" id="payMethod">
-        <button id="pmCard" class="on" data-m="tarjeta">💳 Tarjeta</button>
-        <button id="pmAcc" data-m="cuenta">🏦 Cuenta / efectivo</button>
+      <div class="pmgrid" id="payMethod">
+        <button data-m="tarjeta" class="on">💳 Tarjeta crédito</button>
+        <button data-m="debito">🏦 Débito</button>
+        <button data-m="transferencia">↔️ Transferencia</button>
+        <button data-m="efectivo">💵 Efectivo</button>
       </div>
 
       <div id="cardBox">
@@ -196,13 +203,13 @@
               <button id="cuoMinus">−</button><div class="nc"><span id="cuoN">3</span> cuotas</div><button id="cuoPlus">+</button>
             </div>
           </div>
-          <div id="cuoHint" class="hide" style="font-size:.72rem;color:var(--ink-3);margin-top:8px">Se guarda como cuota 1. Cada mes te va a aparecer en “próximos pagos”.</div>
+          <div id="cuoHint" class="hide" style="font-size:.78rem;color:var(--brand-ink);margin-top:8px;font-weight:600"></div>
         </div>
       </div>
 
       <div id="accBox" class="hide">
-        <div class="qlabel">Cuenta</div>
-        <select class="txt" id="cuentaSel" style="margin-bottom:12px"></select>
+        <div class="qlabel" id="accLabel">Cuenta</div>
+        <div class="cardchips" id="acctChips"></div>
       </div>
 
       <div class="qlabel">Categoría</div>
@@ -239,7 +246,7 @@
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · <span class="appver">v0.6</span> · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.7</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -254,7 +261,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.6';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.7';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -397,25 +404,41 @@ function renderCards(){const box=$('cardChips');const known=Object.keys(CYCLES);
 }
 function wireCargar(){
   $('tGasto').onclick=()=>setTipo('gasto');$('tIngreso').onclick=()=>setTipo('ingreso');
-  $('pmCard').onclick=()=>setMethod('tarjeta');$('pmAcc').onclick=()=>setMethod('cuenta');
+  document.querySelectorAll('#payMethod button').forEach(b=>b.onclick=()=>setMethod(b.dataset.m));
   $('sPersonal').onclick=()=>setAmb('personal');$('sActividad').onclick=()=>setAmb('actividad');
-  $('cuoToggle').onclick=()=>{st.enCuotas=!st.enCuotas;$('cuoSw').classList.toggle('on',st.enCuotas);$('cuoStepper').classList.toggle('hide',!st.enCuotas);$('cuoHint').classList.toggle('hide',!st.enCuotas);};
-  $('cuoMinus').onclick=()=>{st.nCuo=Math.max(2,st.nCuo-1);$('cuoN').textContent=st.nCuo;};
-  $('cuoPlus').onclick=()=>{st.nCuo=Math.min(24,st.nCuo+1);$('cuoN').textContent=st.nCuo;};
+  $('cuoToggle').onclick=()=>{st.enCuotas=!st.enCuotas;$('cuoSw').classList.toggle('on',st.enCuotas);$('cuoStepper').classList.toggle('hide',!st.enCuotas);updateCuoHint();};
+  $('cuoMinus').onclick=()=>{st.nCuo=Math.max(2,st.nCuo-1);$('cuoN').textContent=st.nCuo;updateCuoHint();};
+  $('cuoPlus').onclick=()=>{st.nCuo=Math.min(24,st.nCuo+1);$('cuoN').textContent=st.nCuo;updateCuoHint();};
+  $('monto').addEventListener('input',updateCuoHint);
   $('btnSave').onclick=saveMov;$('btnAddAcc').onclick=addAcc;
-  fillAccounts();
   document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
+  setMethod('tarjeta');
 }
-function fillAccounts(){const sel=$('cuentaSel');sel.innerHTML='';const usable=DATA.accts.filter(a=>!isInv(a));
-  if(!usable.length){sel.innerHTML='<option value="">(agregá una cuenta)</option>';return;}
-  usable.forEach(a=>{const o=document.createElement('option');o.value=a.id;o.textContent=(ACC_EMO[a.tipo]||'')+' '+a.nombre;sel.appendChild(o);});
-  st.cuenta=usable[0].id;sel.onchange=()=>st.cuenta=sel.value;}
+function montoVal(){return parseFloat(($('monto').value||'').replace(/\./g,'').replace(',','.'))||0;}
+function updateCuoHint(){const h=$('cuoHint');if(!st.enCuotas){h.classList.add('hide');return;}
+  h.classList.remove('hide');const m=montoVal();
+  h.textContent=m>0?`Cada cuota: ${money(m/st.nCuo)} · se suma a ${st.card}`:'Poné el monto total y te digo de cuánto es cada cuota.';}
+function renderAcctChips(m){const box=$('acctChips'),bal=balances();
+  let list=DATA.accts.filter(a=>!isInv(a));
+  if(m==='efectivo')list=list.filter(a=>a.tipo==='efectivo');
+  else if(m==='debito'||m==='transferencia')list=list.filter(a=>a.tipo==='banco');
+  $('accLabel').textContent=m==='efectivo'?'Efectivo (tu plata en mano)':(m==='transferencia'?'Cuenta para transferir':'Cuenta para el débito');
+  if(!list.length){box.innerHTML=`<div style="font-size:.78rem;color:var(--ink-3)">No tenés ${m==='efectivo'?'una cuenta de <b>Efectivo</b>':'cuentas de banco'} cargada. Creala en la pestaña <b>Cuentas</b>.</div>`;st.cuenta=null;return;}
+  if(!list.find(a=>a.id===st.cuenta))st.cuenta=list[0].id;
+  box.innerHTML=list.map(a=>`<button class="chip acctchip ${a.id===st.cuenta?'on':''}" data-acc="${a.id}">${ACC_EMO[a.tipo]||''} ${esc(a.nombre.split('·')[0].trim())} · <b>${isUSD(a)?moneyU(bal[a.id]||0):money(bal[a.id]||0)}</b></button>`).join('');
+  box.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{st.cuenta=b.dataset.acc;renderAcctChips(m);});
+}
 function setTipo(t){st.tipo=t;$('tGasto').className=t==='gasto'?'on gasto':'';$('tIngreso').className=t==='ingreso'?'on ing':'';
   $('btnSave').textContent=t==='gasto'?'Guardar gasto':'Guardar ingreso';$('btnSave').style.background=t==='gasto'?'var(--neg)':'var(--pos)';
-  // ingreso no va con tarjeta
-  if(t==='ingreso')setMethod('cuenta');renderChips();}
-function setMethod(m){st.method=m;$('pmCard').className=m==='tarjeta'?'on':'';$('pmAcc').className=m==='cuenta'?'on':'';
-  $('cardBox').classList.toggle('hide',m!=='tarjeta');$('accBox').classList.toggle('hide',m!=='cuenta');}
+  const cardBtn=document.querySelector('#payMethod button[data-m="tarjeta"]');
+  if(t==='ingreso'){cardBtn.style.display='none';if(st.method==='tarjeta')setMethod('transferencia');}
+  else cardBtn.style.display='';
+  renderChips();}
+function setMethod(m){st.method=m;
+  document.querySelectorAll('#payMethod button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('cardBox').classList.toggle('hide',m!=='tarjeta');
+  $('accBox').classList.toggle('hide',m==='tarjeta');
+  if(m!=='tarjeta')renderAcctChips(m); else updateCuoHint();}
 function setAmb(a){st.ambito=a;$('sPersonal').className=a==='personal'?'on':'';$('sActividad').className=a==='actividad'?'on':'';}
 
 async function saveMov(){
@@ -424,7 +447,7 @@ async function saveMov(){
   const row={tipo:st.tipo,monto,ambito:st.ambito,categoria_id:st.catId||null,descripcion:$('desc').value.trim()||null,fecha:$('fecha').value};
   if(st.tipo==='gasto'&&st.method==='tarjeta'){row.tarjeta=st.card;row.cuenta_id=null;
     if(st.enCuotas){row.cuota_actual=1;row.cuota_total=st.nCuo;row.monto=+(monto/st.nCuo).toFixed(2);row.descripcion=(row.descripcion||'')+` (total $${Math.round(monto).toLocaleString('es-AR')})`;}
-  }else{row.cuenta_id=st.cuenta||null;row.tarjeta=null;}
+  }else{if(!st.cuenta)return banner(st.method==='efectivo'?'Primero creá una cuenta Efectivo en la pestaña Cuentas.':'Elegí una cuenta.');row.cuenta_id=st.cuenta;row.tarjeta=null;}
   const b=$('btnSave'),p=b.textContent;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{
     if(DEMO||!session){const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,id:'tmp'+Date.now(),categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});}
@@ -437,7 +460,7 @@ async function saveMov(){
 async function addAcc(){const nombre=$('accNombre').value.trim();if(!nombre)return banner('Ponele nombre a la cuenta.');
   const row={nombre,tipo:$('accTipo').value,moneda:'ARS',saldo:parseFloat(($('accSaldo').value||'0').replace(/\./g,'').replace(',','.'))||0};
   try{if(DEMO||!session)DATA.accts.push({...row,id:'tmp'+Date.now()});else{const {error}=await db.from('cuentas').insert({...row,user_id:session.user.id});if(error)throw error;await reload();}
-    banner('Cuenta creada ✓',true);$('accNombre').value='';$('accSaldo').value='';fillAccounts();renderAll();}
+    banner('Cuenta creada ✓',true);$('accNombre').value='';$('accSaldo').value='';if(st.method!=='tarjeta')renderAcctChips(st.method);renderAll();}
   catch(e){banner('No se pudo: '+(e.message||e));}
 }
 async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
@@ -459,7 +482,7 @@ function switchView(v){st.view=v;
 // ---- DEMO ----
 function demo(){
   const A=(id,tipo,nombre,moneda,saldo)=>({id,tipo,nombre,moneda,saldo});
-  const accts=[A('a1','banco','Macro · C.A. $ …1048','ARS',1056489),A('a3','banco','Santander · C.A. $','ARS',943072),A('a4','banco','Santander · CA U$S','USD',845),A('a5','banco','BBVA · C.A. $','ARS',708866),A('a8','inversion','Bull Market · Inversiones','ARS',28489700)];
+  const accts=[A('a1','banco','Macro · C.A. $ …1048','ARS',1056489),A('a3','banco','Santander · C.A. $','ARS',943072),A('a4','banco','Santander · CA U$S','USD',845),A('a5','banco','BBVA · C.A. $','ARS',708866),A('a9','efectivo','Efectivo','ARS',120000),A('a8','inversion','Bull Market · Inversiones','ARS',28489700)];
   const C=(n,e)=>({nombre:n,emoji:e});
   const cats=[C('Alimentos/Súper','🛒'),C('Combustible','⛽'),C('Farmacia','💊'),C('Gastronomía','🍔'),C('Salud/Prepaga','🩺'),C('Servicios','🏠'),C('Impuestos','🏛️'),C('Alquiler','🔑'),C('Ropa','👕'),C('Ocio/Entretenim.','🎬'),C('Plataformas/Suscrip.','📱'),C('Otros','•')].map((c,i)=>({id:'c'+i,tipo:'gasto',...c}));
   const M=(f,monto,cat,em,desc,tarjeta,ca,ct,cuenta)=>({id:'m'+Math.round(monto+f.length),fecha:f,tipo:'gasto',monto,ambito:'personal',categorias:C(cat,em),descripcion:desc,tarjeta,cuota_actual:ca,cuota_total:ct,cuenta_id:cuenta});
