@@ -140,7 +140,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.5</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.6</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -150,7 +150,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.5</span>
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.6</span>
         <button id="btnLogout">Salir</button>
       </div>
     </div>
@@ -239,7 +239,7 @@
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · <span class="appver">v0.5</span> · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.6</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -254,7 +254,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.5';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.6';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -319,7 +319,9 @@ const isUSD=a=>a.moneda==='USD', isInv=a=>a.tipo==='inversion';
 function balances(){const b={};DATA.accts.forEach(a=>b[a.id]=+a.saldo);DATA.movs.forEach(m=>{if(m.cuenta_id&&b[m.cuenta_id]!==undefined)b[m.cuenta_id]+=(m.tipo==='ingreso'?+m.monto:-m.monto);});return b;}
 function health(){const bal=balances();let liq=0,inv=0,usd=0;
   DATA.accts.forEach(a=>{const v=bal[a.id]||0;if(isInv(a))inv+=v;else if(isUSD(a))usd+=v;else liq+=v;});
-  const deudaTarj=DATA.movs.filter(m=>m.tarjeta).reduce((s,m)=>s+ +m.monto,0);
+  // Deuda de tarjeta = lo que te queda por pagar hacia adelante (cuotas que siguen + consumos del ciclo abierto),
+  // NO los resúmenes ya vencidos/pagados. Así coincide con "Próximos pagos".
+  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c).total,0);
   const vencPend=(DATA.vencs||[]).filter(x=>x.estado!=='pagado').reduce((s,x)=>s+(+x.monto||0),0);
   return{bal,liq,inv,usd,deudaTarj,vencPend,disp:liq-deudaTarj-vencPend};}
 
