@@ -102,7 +102,7 @@
   .acct .cur{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--ink-2)}.acct .cur.usd{background:var(--blue-wash);color:var(--blue)}
   .acct .an{flex:1;font-size:13.5px;font-weight:500}.acct .av{font-family:var(--mono);font-weight:600}
   .tcard{background:linear-gradient(135deg,#3a3f45,#22262b);color:#f2f4f6;border-radius:16px;padding:20px;box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
-  .tcard.santander{background:linear-gradient(135deg,#c81e1e,#7d0f0f)}.tcard.macro{background:linear-gradient(135deg,#b98a2e,#6f5015)}.tcard.bbva{background:linear-gradient(135deg,#12385f,#071a30)}.tcard.nancy{background:linear-gradient(135deg,#7a2f52,#3d1e30)}
+  .tcard.santander{background:linear-gradient(135deg,#c81e1e,#7d0f0f)}.tcard.macro{background:linear-gradient(135deg,#b98a2e,#6f5015)}.tcard.bbva{background:linear-gradient(135deg,#12385f,#071a30)}.tcard.nancy{background:linear-gradient(135deg,#7a2f52,#3d1e30)}.tcard.amex{background:linear-gradient(135deg,#2e7d78,#12403d)}
   .tcard .cardchip{width:42px;height:30px;border-radius:6px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.5));margin:14px 0}
   .tcard .b2{display:flex;justify-content:space-between;font-size:13px;opacity:.85}.tcard .num{font-family:var(--mono);letter-spacing:.12em;margin:20px 0 14px;font-size:15px;opacity:.9}
   .tcard .pay{font-size:11px;opacity:.75}.tcard .paybig{font-family:var(--serif);font-size:1.8rem;font-weight:600}
@@ -137,7 +137,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.10</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.12</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -268,7 +268,7 @@ const bankOf=s=>{s=(s||'').toLowerCase();return s.includes('macro')?'Macro':s.in
 const isInv=a=>a.tipo==='inversion';
 const esAhorro=a=>a.ahorro||isInv(a);   // Bull Market siempre; el resto según su marca
 // Ciclos de tarjeta (mismos que la app): para calcular la deuda "hacia adelante"
-const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13}};
+const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
 function todayW(){return DEMO?new Date(2026,6,26):new Date();}
 function lastCierreW(day){const t=todayW();let d=new Date(t.getFullYear(),t.getMonth(),day);if(d>t)d=new Date(t.getFullYear(),t.getMonth()-1,day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function cardsInUse(){const s=[];DATA.movs.forEach(m=>{if(m.tarjeta&&!s.includes(m.tarjeta))s.push(m.tarjeta);});return s;}
@@ -371,12 +371,14 @@ function vCuentas(v){const bal=balances(),P=patr(bal),banks={};DATA.accts.forEac
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="ph" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px" onclick="formCuenta()">+ Agregar cuenta</button></div>${html}`;}
 
 // TARJETAS
-const bankClassW=c=>/nancy/i.test(c)?'nancy':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
+const bankClassW=c=>/nancy/i.test(c)?'nancy':/amex/i.test(c)?'amex':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
 const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA'};
-function vTarjetas(v){const byCard={};DATA.movs.filter(m=>m.tarjeta).forEach(m=>{byCard[m.tarjeta]=(byCard[m.tarjeta]||0)+cardEstimate(m.tarjeta)*0;});
-  const cards=cardsInUse().map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0)}));
+const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};
+function vTarjetas(v){
+  const list=[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
+  const cards=list.map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim:CARD_LIMIT[t]}));
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="b2"><span style="font-weight:700">${esc(c.t)}</span><span>VISA</span></div><div class="cardchip"></div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.full>c.total+1?`<div class="pay" style="opacity:.8;margin-top:6px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
+    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="b2"><span style="font-weight:700">${esc(c.t)}</span><span>${/master/i.test(c.t)?'MASTER':'VISA'}</span></div><div class="cardchip"></div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(c.lim-c.full)}<span style="opacity:.7"> · de ${money(c.lim)}</span></div>`:''}${c.full>c.total+1?`<div class="pay" style="opacity:.75;margin-top:4px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
   <div class="panel mt"><div class="ph"><h3>Subir resumen de tarjeta</h3><span class="meta">PDF o Excel</span></div><div class="pad"><div class="drop"><div style="font-size:1.6rem">📄</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Lo leo, categorizo cada consumo y te digo el total a pagar y los vencimientos.</div><label class="pick">Elegir archivo<input type="file" style="display:none"></label></div><div style="font-size:12px;color:var(--ink-3);margin-top:10px">La lectura automática del PDF corre del lado del servidor (la estamos terminando). Por ahora, pasámelo por el chat y lo cargo.</div></div></div>`;}
 
 // CUOTAS
