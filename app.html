@@ -81,9 +81,9 @@
   .seg button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-size:.84rem;font-weight:650;color:var(--ink-2)}
   .seg button.on{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.08)}
   .seg button.on.gasto{color:var(--neg)}.seg button.on.ing{color:var(--pos)}
-  .amt{display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 0 12px}
-  .amt .cur{font-size:1.15rem;color:var(--ink-3);font-weight:700}
-  .amt input{border:0;font-size:2.4rem;font-weight:780;letter-spacing:-.04em;width:100%;text-align:center;background:transparent;color:var(--ink)}.amt input:focus{outline:0}
+  .amt{display:flex;align-items:baseline;justify-content:center;gap:6px;padding:6px 0 12px}
+  .amt .cur{font-size:1.6rem;color:var(--ink-3);font-weight:800}
+  .amt input{border:0;font-size:2.6rem;font-weight:800;letter-spacing:-.04em;width:auto;min-width:1ch;text-align:left;background:transparent;color:var(--ink)}.amt input:focus{outline:0}
   .qlabel{font-size:.72rem;font-weight:700;color:var(--ink-2);margin:2px 2px 7px;text-transform:none}
   .pill2{display:flex;gap:8px;margin-bottom:12px}
   .pill2 button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px;font-size:.82rem;font-weight:650;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:7px}
@@ -145,7 +145,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.7</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.8</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -155,7 +155,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.7</span>
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.8</span>
         <button id="btnLogout">Salir</button>
       </div>
     </div>
@@ -165,7 +165,7 @@
     <div class="h3split">
       <div class="c"><div class="k">Líquido en pesos</div><div class="n num" id="hLiq">$ 0</div></div>
       <div class="c"><div class="k">Dólares</div><div class="n num" id="hUsd">US$ 0</div></div>
-      <div class="c"><div class="k">Ahorro (Bull)</div><div class="n num" id="hInv">$ 0</div></div>
+      <div class="c"><div class="k">Ahorros</div><div class="n num" id="hInv">$ 0</div></div>
     </div>
   </header>
 
@@ -184,7 +184,7 @@
         <button id="tGasto" class="on gasto" data-tipo="gasto">Gasto</button>
         <button id="tIngreso" data-tipo="ingreso">Ingreso</button>
       </div>
-      <div class="amt"><span class="cur">$</span><input id="monto" inputmode="decimal" placeholder="0"></div>
+      <div class="amt"><span class="cur">$</span><input id="monto" type="text" inputmode="numeric" placeholder="0" size="1"></div>
 
       <div class="qlabel">¿Cómo lo pagaste?</div>
       <div class="pmgrid" id="payMethod">
@@ -242,11 +242,15 @@
       <input class="txt" id="accNombre" type="text" placeholder="Nombre (ej: Mercado Pago, Efectivo)" style="margin-bottom:10px">
       <div class="rowf">
         <select class="txt" id="accTipo"><option value="banco">🏦 Banco</option><option value="efectivo">💵 Efectivo</option><option value="inversion">📈 Inversión</option></select>
-        <input class="txt" id="accSaldo" inputmode="decimal" placeholder="Saldo $">
+        <select class="txt" id="accMoneda"><option value="ARS">Pesos</option><option value="USD">Dólares</option></select>
+      </div>
+      <div class="rowf">
+        <input class="txt" id="accSaldo" inputmode="decimal" placeholder="Saldo">
+        <button type="button" class="txt" id="accAhorro" style="text-align:left;font-weight:650">🔓 Es ahorro: No</button>
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · <span class="appver">v0.7</span> · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.8</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -261,7 +265,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.7';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.8';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -269,6 +273,7 @@ const ACC_EMO={banco:'🏦',efectivo:'💵',tarjeta:'💳',inversion:'📈'};
 
 let db,session=null,DATA={accts:[],movs:[],cats:[],vencs:[]},
     st={view:'inicio',tipo:'gasto',method:'tarjeta',card:null,cuenta:null,ambito:'personal',catId:null,enCuotas:false,nCuo:3};
+let _accAhorro=false;
 const $=id=>document.getElementById(id);
 const money=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const moneyU=n=>'US$ '+Math.round(n).toLocaleString('es-AR');
@@ -324,13 +329,16 @@ function enterApp(){
 // ---- agregación ----
 const isUSD=a=>a.moneda==='USD', isInv=a=>a.tipo==='inversion';
 function balances(){const b={};DATA.accts.forEach(a=>b[a.id]=+a.saldo);DATA.movs.forEach(m=>{if(m.cuenta_id&&b[m.cuenta_id]!==undefined)b[m.cuenta_id]+=(m.tipo==='ingreso'?+m.monto:-m.monto);});return b;}
-function health(){const bal=balances();let liq=0,inv=0,usd=0;
-  DATA.accts.forEach(a=>{const v=bal[a.id]||0;if(isInv(a))inv+=v;else if(isUSD(a))usd+=v;else liq+=v;});
+const esAhorro=a=>a.ahorro||isInv(a);   // Bull Market siempre es ahorro; el resto según su marca
+function health(){const bal=balances();let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0;
+  DATA.accts.forEach(a=>{const v=bal[a.id]||0;
+    if(esAhorro(a)){isUSD(a)?ahoUsd+=v:ahoPesos+=v;}
+    else{isUSD(a)?opUsd+=v:opPesos+=v;}});
   // Deuda de tarjeta = lo que te queda por pagar hacia adelante (cuotas que siguen + consumos del ciclo abierto),
   // NO los resúmenes ya vencidos/pagados. Así coincide con "Próximos pagos".
   const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c).total,0);
   const vencPend=(DATA.vencs||[]).filter(x=>x.estado!=='pagado').reduce((s,x)=>s+(+x.monto||0),0);
-  return{bal,liq,inv,usd,deudaTarj,vencPend,disp:liq-deudaTarj-vencPend};}
+  return{bal,opPesos,opUsd,ahoPesos,ahoUsd,deudaTarj,vencPend,disp:opPesos-deudaTarj-vencPend};}
 
 // próximo pago estimado por tarjeta: cuotas que siguen + consumos del ciclo abierto (aún sin cerrar)
 function cardEstimate(card){
@@ -348,7 +356,8 @@ function renderAll(){renderHeader();renderPay();renderHome();renderTarjetas();re
 function renderHeader(){const H=health();
   $('dispV').textContent=money(H.disp);$('dispV').style.color=H.disp>=0?'#eafff6':'#ffd7d7';
   $('dispSub').textContent=H.disp>=0?'ya descontadas tarjetas e impuestos':'¡ojo! los pesos no cubren las tarjetas';
-  $('hLiq').textContent=money(H.liq);$('hUsd').textContent=moneyU(H.usd);$('hInv').textContent=money(H.inv);
+  $('hLiq').textContent=money(H.opPesos);$('hUsd').textContent=moneyU(H.opUsd);
+  $('hInv').textContent=money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):'');
 }
 function renderPay(){const box=$('payList');const items=[];
   cardsInUse().forEach(c=>{const e=cardEstimate(c);if(e.total>0)items.push({date:e.vto,t:c,s:(e.cuotasMes?'cuotas $'+Math.round(e.cuotasMes).toLocaleString('es-AR'):'')+(e.cicloAbierto?(e.cuotasMes?' + ':'')+'consumos $'+Math.round(e.cicloAbierto).toLocaleString('es-AR'):''),val:e.total,estim:true});});
@@ -385,9 +394,11 @@ function renderTarjetas(){const box=$('tcards');const cards=cardsInUse();
 }
 function renderCuentas(){const bal=balances();const box=$('accList');
   if(!DATA.accts.length){box.innerHTML='<div class="empty"><span class="e">🏦</span>Agregá tu primera cuenta abajo.</div>';return;}
-  box.innerHTML=DATA.accts.map(a=>{const b=bal[a.id]||0;return `<div class="acc"><div class="ai">${ACC_EMO[a.tipo]||'💠'}</div>
-    <div class="an"><div class="t">${esc(a.nombre)}</div><div class="s">${a.tipo}${isUSD(a)?' · USD':''}</div></div>
+  box.innerHTML=DATA.accts.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a);return `<div class="acc"><div class="ai">${ACC_EMO[a.tipo]||'💠'}</div>
+    <div class="an"><div class="t">${esc(a.nombre)} ${ah?'<span class="tagx" style="background:var(--plum-wash);color:var(--plum)">ahorro</span>':''}</div>
+    <div class="s">${a.tipo}${isUSD(a)?' · USD':''}${!isInv(a)?` · <button data-toga="${a.id}" style="border:0;background:transparent;color:var(--brand);font-weight:700;font-size:.7rem;padding:0">${ah?'pasar a operativo':'marcar como ahorro'}</button>`:''}</div></div>
     <div class="av num ${b<0?'neg':''}">${isUSD(a)?moneyU(b):money(b)}</div></div>`;}).join('');
+  box.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));
 }
 
 // ---- cargar: wiring ----
@@ -409,8 +420,9 @@ function wireCargar(){
   $('cuoToggle').onclick=()=>{st.enCuotas=!st.enCuotas;$('cuoSw').classList.toggle('on',st.enCuotas);$('cuoStepper').classList.toggle('hide',!st.enCuotas);updateCuoHint();};
   $('cuoMinus').onclick=()=>{st.nCuo=Math.max(2,st.nCuo-1);$('cuoN').textContent=st.nCuo;updateCuoHint();};
   $('cuoPlus').onclick=()=>{st.nCuo=Math.min(24,st.nCuo+1);$('cuoN').textContent=st.nCuo;updateCuoHint();};
-  $('monto').addEventListener('input',updateCuoHint);
+  $('monto').addEventListener('input',e=>{const dig=e.target.value.replace(/\D/g,'');e.target.value=dig?(+dig).toLocaleString('es-AR'):'';e.target.size=Math.max(1,e.target.value.length);updateCuoHint();});
   $('btnSave').onclick=saveMov;$('btnAddAcc').onclick=addAcc;
+  $('accAhorro').onclick=()=>{_accAhorro=!_accAhorro;$('accAhorro').textContent=(_accAhorro?'🔒':'🔓')+' Es ahorro: '+(_accAhorro?'Sí':'No');};
   document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
   setMethod('tarjeta');
 }
@@ -430,10 +442,12 @@ function renderAcctChips(m){const box=$('acctChips'),bal=balances();
 }
 function setTipo(t){st.tipo=t;$('tGasto').className=t==='gasto'?'on gasto':'';$('tIngreso').className=t==='ingreso'?'on ing':'';
   $('btnSave').textContent=t==='gasto'?'Guardar gasto':'Guardar ingreso';$('btnSave').style.background=t==='gasto'?'var(--neg)':'var(--pos)';
-  const cardBtn=document.querySelector('#payMethod button[data-m="tarjeta"]');
-  if(t==='ingreso'){cardBtn.style.display='none';if(st.method==='tarjeta')setMethod('transferencia');}
-  else cardBtn.style.display='';
-  renderChips();}
+  // limpiar el formulario al cambiar de tipo
+  $('monto').value='';$('monto').size=1;$('desc').value='';st.enCuotas=false;$('cuoSw').classList.remove('on');$('cuoStepper').classList.add('hide');
+  // en Ingreso solo tiene sentido Transferencia o Efectivo (no tarjeta de crédito ni débito)
+  document.querySelectorAll('#payMethod button').forEach(b=>{const m=b.dataset.m;const ok=t==='gasto'||m==='transferencia'||m==='efectivo';b.style.display=ok?'':'none';});
+  if(t==='ingreso'&&(st.method==='tarjeta'||st.method==='debito'))setMethod('transferencia');
+  updateCuoHint();renderChips();}
 function setMethod(m){st.method=m;
   document.querySelectorAll('#payMethod button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   $('cardBox').classList.toggle('hide',m!=='tarjeta');
@@ -458,11 +472,14 @@ async function saveMov(){
   finally{b.disabled=false;b.textContent=p;}
 }
 async function addAcc(){const nombre=$('accNombre').value.trim();if(!nombre)return banner('Ponele nombre a la cuenta.');
-  const row={nombre,tipo:$('accTipo').value,moneda:'ARS',saldo:parseFloat(($('accSaldo').value||'0').replace(/\./g,'').replace(',','.'))||0};
+  const row={nombre,tipo:$('accTipo').value,moneda:$('accMoneda').value,ahorro:_accAhorro,saldo:parseFloat(($('accSaldo').value||'0').replace(/\./g,'').replace(',','.'))||0};
   try{if(DEMO||!session)DATA.accts.push({...row,id:'tmp'+Date.now()});else{const {error}=await db.from('cuentas').insert({...row,user_id:session.user.id});if(error)throw error;await reload();}
-    banner('Cuenta creada ✓',true);$('accNombre').value='';$('accSaldo').value='';if(st.method!=='tarjeta')renderAcctChips(st.method);renderAll();}
+    banner('Cuenta creada ✓',true);$('accNombre').value='';$('accSaldo').value='';_accAhorro=false;$('accAhorro').textContent='🔓 Es ahorro: No';if(st.method!=='tarjeta')renderAcctChips(st.method);renderAll();}
   catch(e){banner('No se pudo: '+(e.message||e));}
 }
+async function toggleAhorro(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const nv=!esAhorro(a);a.ahorro=nv;
+  if(!DEMO&&session){const {error}=await db.from('cuentas').update({ahorro:nv}).eq('id',id);if(error){a.ahorro=!nv;banner('No se pudo (¿corriste el SQL de "ahorro"?): '+error.message);return;}}
+  banner(nv?'Marcada como ahorro':'Ahora es operativo',true);renderAll();}
 async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
   if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}else{const {error}=await db.from('movimientos').delete().eq('id',id);if(error)return banner('No se pudo borrar: '+error.message);await reload();}
   banner('Borrado',true);renderAll();
@@ -482,7 +499,8 @@ function switchView(v){st.view=v;
 // ---- DEMO ----
 function demo(){
   const A=(id,tipo,nombre,moneda,saldo)=>({id,tipo,nombre,moneda,saldo});
-  const accts=[A('a1','banco','Macro · C.A. $ …1048','ARS',1056489),A('a3','banco','Santander · C.A. $','ARS',943072),A('a4','banco','Santander · CA U$S','USD',845),A('a5','banco','BBVA · C.A. $','ARS',708866),A('a9','efectivo','Efectivo','ARS',120000),A('a8','inversion','Bull Market · Inversiones','ARS',28489700)];
+  const accts=[A('a1','banco','Macro · C.A. $ …1048','ARS',1056489),A('a3','banco','Santander · C.A. $','ARS',943072),A('a4','banco','Santander · CA U$S','USD',845),A('a5','banco','BBVA · C.A. $','ARS',708866),A('a9','efectivo','Efectivo','ARS',120000),
+    {id:'a10',tipo:'efectivo',nombre:'Ahorro en efectivo',moneda:'ARS',saldo:500000,ahorro:true},{id:'a11',tipo:'efectivo',nombre:'Dólares guardados',moneda:'USD',saldo:2000,ahorro:true},A('a8','inversion','Bull Market · Inversiones','ARS',28489700)];
   const C=(n,e)=>({nombre:n,emoji:e});
   const cats=[C('Alimentos/Súper','🛒'),C('Combustible','⛽'),C('Farmacia','💊'),C('Gastronomía','🍔'),C('Salud/Prepaga','🩺'),C('Servicios','🏠'),C('Impuestos','🏛️'),C('Alquiler','🔑'),C('Ropa','👕'),C('Ocio/Entretenim.','🎬'),C('Plataformas/Suscrip.','📱'),C('Otros','•')].map((c,i)=>({id:'c'+i,tipo:'gasto',...c}));
   const M=(f,monto,cat,em,desc,tarjeta,ca,ct,cuenta)=>({id:'m'+Math.round(monto+f.length),fecha:f,tipo:'gasto',monto,ambito:'personal',categorias:C(cat,em),descripcion:desc,tarjeta,cuota_actual:ca,cuota_total:ct,cuenta_id:cuenta});

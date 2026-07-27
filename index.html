@@ -135,7 +135,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.7</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.8</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -264,44 +264,56 @@ const bankOf=s=>{s=(s||'').toLowerCase();return s.includes('macro')?'Macro':s.in
 
 // PANEL
 const isInv=a=>a.tipo==='inversion';
+const esAhorro=a=>a.ahorro||isInv(a);   // Bull Market siempre; el resto según su marca
+// Ciclos de tarjeta (mismos que la app): para calcular la deuda "hacia adelante"
+const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
+function todayW(){return DEMO?new Date(2026,6,26):new Date();}
+function lastCierreW(day){const t=todayW();let d=new Date(t.getFullYear(),t.getMonth(),day);if(d>t)d=new Date(t.getFullYear(),t.getMonth()-1,day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function cardsInUse(){const s=[];DATA.movs.forEach(m=>{if(m.tarjeta&&!s.includes(m.tarjeta))s.push(m.tarjeta);});return s;}
+function cardEstimate(card){const cy=CYCLES[card]||{cierre:1,vto:10};const cierre=lastCierreW(cy.cierre);const ms=DATA.movs.filter(m=>m.tarjeta===card);
+  const cuotasMes=ms.filter(m=>m.cuota_total&&m.cuota_actual<m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
+  const ciclo=ms.filter(m=>!m.cuota_total&&(m.fecha||'')>cierre).reduce((s,m)=>s+ +m.monto,0);
+  return cuotasMes+ciclo;}
 function health(bal){
-  let liqARS=0,invARS=0,usdDisp=0;
+  let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0;
   DATA.accts.forEach(a=>{const val=bal[a.id]||0;
-    if(isInv(a))invARS+=val;                       // Bull Market = ahorro (no se toca)
-    else if(isUSD(a))usdDisp+=val;                 // dólares reales disponibles
-    else liqARS+=val;});                           // pesos líquidos en cuentas
-  const deudaTarj=DATA.movs.filter(m=>m.tarjeta).reduce((s,m)=>s+ +m.monto,0);   // total a pagar de tarjetas
+    if(esAhorro(a)){isUSD(a)?ahoUsd+=val:ahoPesos+=val;}   // ahorro (Bull + efectivo/dólares guardados)
+    else{isUSD(a)?opUsd+=val:opPesos+=val;}});             // operativo (lo que podés usar)
+  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c),0);   // hacia adelante, no resúmenes ya pagados
   const vencPend=(DATA.vencs||[]).filter(x=>x.estado!=='pagado').reduce((s,x)=>s+(+x.monto||0),0);
-  const dispPesos=liqARS-deudaTarj-vencPend;       // lo que te queda en pesos tras compromisos
-  const dispConUSD=dispPesos+usdDisp*USD;          // idem, si usaras los dólares
-  return{liqARS,invARS,usdDisp,deudaTarj,vencPend,dispPesos,dispConUSD};}
+  const dispPesos=opPesos-deudaTarj-vencPend;
+  const ahoTotal=ahoPesos+ahoUsd*USD;
+  return{opPesos,opUsd,ahoPesos,ahoUsd,ahoTotal,deudaTarj,vencPend,dispPesos,
+         liqARS:opPesos,usdDisp:opUsd,invARS:ahoTotal};}   // aliases para compBar/nota
 let _patrOpen=null;
 function togglePatr(k){_patrOpen=_patrOpen===k?null:k;
-  ['pesos','usd'].forEach(x=>{const d=$('drill_'+x);if(d)d.classList.toggle('hide',_patrOpen!==x);
+  ['pesos','usd','ahorro'].forEach(x=>{const d=$('drill_'+x);if(d)d.classList.toggle('hide',_patrOpen!==x);
     const b=$('heroBtn_'+x);if(b)b.classList.toggle('open',_patrOpen===x);});}
 function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
   let ing=0,gas=0;ms.forEach(m=>{if(m.tipo==='ingreso')ing+=+m.monto;else if(m.tipo==='gasto')gas+=+m.monto;});
   const iva=ivaPos(),cats=catAgg(ms),topcats=cats.slice(0,6),maxc=topcats[0]?topcats[0].v:1;
-  const arsList=DATA.accts.filter(a=>!isUSD(a)),usdList=DATA.accts.filter(isUSD);
-  const drillRow=a=>`<div class="acct"><span class="cur ${isUSD(a)?'usd':''}">${isInv(a)?'📈':(isUSD(a)?'US$':'AR$')}</span><span class="an">${esc(a.nombre)}${isInv(a)?' <span class="tag" style="background:var(--plum-wash);color:var(--plum)">ahorro · no se toca</span>':''}</span><span class="av">${isUSD(a)?moneyU(bal[a.id]||0):money(bal[a.id]||0)}</span></div>`;
+  const opArs=DATA.accts.filter(a=>!isUSD(a)&&!esAhorro(a)),opUsdL=DATA.accts.filter(a=>isUSD(a)&&!esAhorro(a)),ahoList=DATA.accts.filter(esAhorro);
+  const drillRow=a=>`<div class="acct"><span class="cur ${isUSD(a)?'usd':''}">${isInv(a)?'📈':(isUSD(a)?'US$':'AR$')}</span><span class="an">${esc(a.nombre)}</span><span class="av">${isUSD(a)?moneyU(bal[a.id]||0):money(bal[a.id]||0)}</span></div>`;
   const pos=H.dispPesos>=0;
   v.innerHTML=`<div class="hero">
-    <button id="heroBtn_pesos" class="nw pesos hbtn" onclick="togglePatr('pesos')"><div class="lbl">Patrimonio en pesos <span class="drx">ver detalle ▾</span></div><div class="big mono">${money(P.arsAccts)}</div><div class="note">tocá para ver de qué cuentas sale</div></button>
-    <button id="heroBtn_usd" class="nw usd hbtn" onclick="togglePatr('usd')"><div class="lbl">Patrimonio en dólares <span class="drx">ver detalle ▾</span></div><div class="big mono">${moneyU(P.usdAccts)}</div><div class="note">dólares reales en tus cuentas (sin conversión)</div></button></div>
-  <div id="drill_pesos" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde sale el patrimonio en pesos</h3><span class="meta">${arsList.length} cuentas</span></div><div class="pad" style="padding-top:2px">${arsList.map(drillRow).join('')}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total en pesos</span><span class="av">${money(P.arsAccts)}</span></div></div></div>
-  <div id="drill_usd" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde salen los dólares</h3><span class="meta">${usdList.length} cuentas</span></div><div class="pad" style="padding-top:2px">${usdList.map(drillRow).join('')||'<div class="empty">Sin cuentas en dólares.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur usd" style="background:transparent">Σ</span><span class="an">Total en dólares</span><span class="av">${moneyU(P.usdAccts)}</span></div></div></div>
+    <button id="heroBtn_pesos" class="nw pesos hbtn" onclick="togglePatr('pesos')"><div class="lbl">Patrimonio en pesos <span class="drx">ver detalle ▾</span></div><div class="big mono">${money(H.opPesos)}</div><div class="note">tu plata operativa (sin ahorros)</div></button>
+    <button id="heroBtn_usd" class="nw usd hbtn" onclick="togglePatr('usd')"><div class="lbl">Patrimonio en dólares <span class="drx">ver detalle ▾</span></div><div class="big mono">${moneyU(H.opUsd)}</div><div class="note">dólares operativos (sin conversión)</div></button></div>
+  <div id="drill_pesos" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde sale el patrimonio en pesos</h3><span class="meta">${opArs.length} cuentas</span></div><div class="pad" style="padding-top:2px">${opArs.map(drillRow).join('')||'<div class="empty">Sin cuentas operativas en pesos.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total operativo en pesos</span><span class="av">${money(H.opPesos)}</span></div></div></div>
+  <div id="drill_usd" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde salen los dólares</h3><span class="meta">${opUsdL.length} cuentas</span></div><div class="pad" style="padding-top:2px">${opUsdL.map(drillRow).join('')||'<div class="empty">Sin dólares operativos.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur usd" style="background:transparent">Σ</span><span class="an">Total en dólares</span><span class="av">${moneyU(H.opUsd)}</span></div></div></div>
+  <div class="panel" style="margin-bottom:20px;background:var(--plum-wash);border-color:#dcc9ea"><button id="heroBtn_ahorro" class="hbtn" style="background:transparent;width:100%;padding:14px 20px;display:flex;align-items:center;justify-content:space-between" onclick="togglePatr('ahorro')"><span style="font-weight:700;color:var(--plum)">🔒 Ahorros (no se tocan) <span class="drx" style="color:var(--plum)">ver detalle ▾</span></span><span class="mono" style="font-weight:700;color:var(--plum);font-size:1.1rem">${money(H.ahoTotal)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></button>
+    <div id="drill_ahorro" class="hide pad" style="padding-top:0">${ahoList.map(drillRow).join('')||'<div class="empty">Sin ahorros cargados. Marcá una cuenta como “ahorro” en Cuentas.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total ahorros</span><span class="av">${money(H.ahoTotal)}</span></div></div></div>
 
   <div class="panel" style="margin-bottom:20px;${pos?'':'border-color:#e3b3b3'}">
     <div class="ph"><h3>💰 ¿Cuánto puedo gastar?</h3><span class="meta">plata líquida, sin tocar inversiones</span></div>
     <div class="hgrid">
-      <div class="hcell"><div class="hk">Pesos líquidos en cuentas</div><div class="hv mono">${money(H.liqARS)}</div><div class="hs">sin Bull Market</div></div>
-      <div class="hcell"><div class="hk">− Tarjetas a pagar</div><div class="hv mono" style="color:var(--neg)">${money(H.deudaTarj)}</div><div class="hs">resúmenes del período</div></div>
+      <div class="hcell"><div class="hk">Pesos operativos</div><div class="hv mono">${money(H.opPesos)}</div><div class="hs">sin ahorros</div></div>
+      <div class="hcell"><div class="hk">− Tarjetas a pagar</div><div class="hv mono" style="color:var(--neg)">${money(H.deudaTarj)}</div><div class="hs">lo que falta pagar</div></div>
       <div class="hcell"><div class="hk">− Impuestos por vencer</div><div class="hv mono" style="color:var(--neg)">${H.vencPend?money(H.vencPend):'$ 0'}</div><div class="hs">planes / vencimientos</div></div>
       <div class="hcell big ${pos?'good':'bad'}"><div class="hk">${pos?'Te queda para gastar':'Te falta (rojo)'}</div><div class="hv mono">${money(Math.abs(H.dispPesos))}</div><div class="hs">${pos?'en pesos, ya cubiertas las tarjetas':'los pesos no alcanzan a cubrir las tarjetas'}</div></div>
     </div>
     <div class="hnote">${pos
-      ? `Después de pagar las tarjetas y los impuestos, te quedan <b>${money(H.dispPesos)}</b> líquidos en pesos. Además tenés <b>${moneyU(H.usdDisp)}</b> en dólares y <b>${money(H.invARS)}</b> en Bull Market como ahorro (que dijiste no tocar).`
-      : `⚠️ Tus pesos líquidos (<b>${money(H.liqARS)}</b>) <b>no alcanzan</b> a cubrir lo que debés de tarjetas + impuestos (<b>${money(H.deudaTarj+H.vencPend)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que tendrías que cubrir con tus dólares (<b>${moneyU(H.usdDisp)}</b> ≈ ${money(H.usdDisp*USD)}) o tocando Bull Market. Ojo con esto.`}</div>
+      ? `Después de pagar las tarjetas y los impuestos, te quedan <b>${money(H.dispPesos)}</b> operativos en pesos. Además tenés <b>${moneyU(H.opUsd)}</b> en dólares operativos y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).`
+      : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir lo que debés de tarjetas + impuestos (<b>${money(H.deudaTarj+H.vencPend)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que tendrías que cubrir con tus dólares (<b>${moneyU(H.opUsd)}</b> ≈ ${money(H.opUsd*USD)}) o tocando tus ahorros. Ojo con esto.`}</div>
   </div>
 
   <div class="row3">
@@ -313,11 +325,11 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <div class="panel"><div class="ph"><h3>Composición del patrimonio</h3><span class="meta">líquido vs ahorro</span></div><div class="pad">${compBar(H,iva)}</div></div></div>`;
   wireCats(v);}
 function compBar(H,iva){const total=H.liqARS+H.usdDisp*USD+H.invARS||1;
-  const seg=[['Pesos líquidos',H.liqARS,'var(--pine)'],['Dólares',H.usdDisp*USD,'var(--blue)'],['Bull Market (ahorro)',H.invARS,'var(--plum)']];
+  const seg=[['Pesos operativos',H.liqARS,'var(--pine)'],['Dólares operativos',H.usdDisp*USD,'var(--blue)'],['Ahorros (Bull + guardado)',H.invARS,'var(--plum)']];
   return `<div style="display:flex;height:16px;border-radius:6px;overflow:hidden;margin-bottom:14px">${seg.map(([n,v,c])=>`<div title="${n}" style="width:${v/total*100}%;background:${c}"></div>`).join('')}</div>
     ${seg.map(([n,v,c])=>`<div class="ivrow"><span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${c};margin-right:7px"></span>${n}</span><b class="mono">${money(v)}</b></div>`).join('')}
     <div class="ivrow" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span><b>Patrimonio total</b></span><b class="mono">${money(total)}</b></div>
-    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">El <b>${Math.round(H.invARS/total*100)}%</b> de tu patrimonio está en Bull Market como ahorro. Lo líquido para el día a día es el resto.</div>`;}
+    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">El <b>${Math.round(H.invARS/total*100)}%</b> de tu patrimonio son ahorros (no se tocan). Lo operativo para el día a día es el resto.</div>`;}
 
 // GASTOS
 function vGastos(v){const ms=fmovs(),cats=catAgg(ms),max=cats[0]?cats[0].v:1;
@@ -479,7 +491,9 @@ function fdateLong(d){try{return new Date(d+'T00:00:00').toLocaleDateString('es-
 function demo(){const iso=d=>`2026-07-${String(d).padStart(2,'0')}`;
   const accts=[{id:'a1',tipo:'banco',nombre:'Macro · C.A. $ …1048',moneda:'ARS',saldo:1056489},{id:'a3',tipo:'banco',nombre:'Santander · C.A. $ 181-394297',moneda:'ARS',saldo:943072},
    {id:'a4',tipo:'banco',nombre:'Santander · CA U$S',moneda:'USD',saldo:845},{id:'a5',tipo:'banco',nombre:'BBVA · C.A. $ 243-56956',moneda:'ARS',saldo:708866},
-   {id:'a6',tipo:'banco',nombre:'BBVA · C.C. $ 243-14920',moneda:'ARS',saldo:86650},{id:'a7',tipo:'banco',nombre:'BBVA · CA U$S 243-624100',moneda:'USD',saldo:16},{id:'a8',tipo:'inversion',nombre:'Bull Market · Inversiones',moneda:'ARS',saldo:28489700}];
+   {id:'a6',tipo:'banco',nombre:'BBVA · C.C. $ 243-14920',moneda:'ARS',saldo:86650},{id:'a7',tipo:'banco',nombre:'BBVA · CA U$S 243-624100',moneda:'USD',saldo:16},
+   {id:'a9',tipo:'efectivo',nombre:'Ahorro en efectivo',moneda:'ARS',saldo:500000,ahorro:true},{id:'a10',tipo:'efectivo',nombre:'Dólares guardados',moneda:'USD',saldo:2000,ahorro:true},
+   {id:'a8',tipo:'inversion',nombre:'Bull Market · Inversiones',moneda:'ARS',saldo:28489700}];
   const C=(n,e)=>({nombre:n,emoji:e});
   const M=(f,monto,cat,em,desc,tarjeta,amb,ca,ct,nancy,acc)=>({fecha:f,tipo:'gasto',monto,ambito:amb||'personal',categorias:C(cat,em),descripcion:desc,tarjeta,cuota_actual:ca,cuota_total:ct,nancy,cuenta_id:acc});
   const movs=[
