@@ -298,7 +298,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.15';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.16';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -516,13 +516,24 @@ function setMethod(m){st.method=m;
   if(m!=='tarjeta')renderAcctChips(m); else updateCuoHint();}
 function setAmb(a){st.ambito=a;$('sPersonal').className=a==='personal'?'on':'';$('sActividad').className=a==='actividad'?'on':'';}
 
+// Si pagás con Efectivo y no tenés una cuenta de efectivo, la creamos sola (saldo 0, ajustable con ✎).
+async function ensureEfectivo(){
+  const ya=DATA.accts.find(x=>x.tipo==='efectivo'&&!esAhorro(x))||DATA.accts.find(x=>x.tipo==='efectivo');
+  if(ya)return ya.id;
+  const row={nombre:'Efectivo',tipo:'efectivo',moneda:'ARS',ahorro:false,saldo:0};
+  if(DEMO||!session){const id='tmp'+Date.now();DATA.accts.push({...row,id});return id;}
+  const {data,error}=await db.from('cuentas').insert({...row,user_id:session.user.id}).select().single();
+  if(error){banner('No pude crear la cuenta Efectivo: '+error.message);return null;}
+  DATA.accts.push(data);banner('Creé tu cuenta Efectivo ✓',true);return data.id;}
 async function saveMov(){
   const monto=parseFloat(($('monto').value||'').replace(/\./g,'').replace(',','.'));
   if(!monto||monto<=0)return banner('Poné un monto válido.');
   const row={tipo:st.tipo,monto,ambito:st.ambito,categoria_id:st.catId||null,descripcion:$('desc').value.trim()||null,fecha:$('fecha').value};
   if(st.tipo==='gasto'&&st.method==='tarjeta'){row.tarjeta=st.card;row.cuenta_id=null;
     if(st.enCuotas){row.cuota_actual=1;row.cuota_total=st.nCuo;row.monto=+(monto/st.nCuo).toFixed(2);row.descripcion=(row.descripcion||'')+` (total $${Math.round(monto).toLocaleString('es-AR')})`;}
-  }else{if(!st.cuenta)return banner(st.method==='efectivo'?'Primero creá una cuenta Efectivo en la pestaña Cuentas.':'Elegí una cuenta.');row.cuenta_id=st.cuenta;row.tarjeta=null;}
+  }else{
+    if(st.method==='efectivo'&&!st.cuenta){const id=await ensureEfectivo();if(!id)return;st.cuenta=id;}
+    if(!st.cuenta)return banner('Elegí una cuenta.');row.cuenta_id=st.cuenta;row.tarjeta=null;}
   const b=$('btnSave'),p=b.textContent;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{
     if(DEMO||!session){const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,id:'tmp'+Date.now(),categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});}

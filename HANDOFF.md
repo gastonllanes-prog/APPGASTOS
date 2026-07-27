@@ -1,11 +1,17 @@
 # HANDOFF — "Caja" · traspaso completo a Claude Code
 
-Estado a la fecha: **v0.15**, en producción en GitHub Pages, con datos reales en Supabase.
+Estado a la fecha: **v0.16**, en producción en GitHub Pages, con datos reales en Supabase.
 Este documento tiene TODO lo necesario para seguir sin contexto previo. Leer junto con `CLAUDE.md`.
+
+### Cambios v0.16
+- **Auto-crear cuenta Efectivo (fix, PWA):** v0.15 se subió SIN este fix. Si cargás en "Efectivo" y no tenés cuenta de efectivo, `ensureEfectivo()` la crea sola. (En v0.15 desplegado había que crearla a mano — por eso ya existe una cuenta "Efectivo" en la base.)
+- **Texto de Vencimientos:** se sacó el "Ejemplo" con números inventados (3/12, $84.500) que confundía; ahora explica cómo funciona el plan y que solo se descuenta la cuota del próximo mes.
+- **Nota de revisión en vivo (27/07):** saldos de banco desfasados respecto al home banking → se corrigen con ✎ saldo. BBVA C.A. 243-56956 mostraba $571.045 vs real **$708.866,74**; Santander C.A. 181-394297 mostraba $943.073 vs real **$1.203.072,91**. NO se tocaron (el clasificador bloquea que el asistente edite saldos; los ajusta Gastón). Ingreso de $156.620 en efectivo cargado OK. RLS verificado activo.
 
 ### Cambios v0.15
 - **Cuotas de tarjeta que avanzan solas (fix):** nueva función `cuotaCur(m)` (en los dos HTML) calcula la cuota actual HOY = `cuota_actual` + meses transcurridos desde `created_at` (o `fecha` si no hay). Antes quedaban clavadas en 1/N. Ahora: (a) la cuota avanza mes a mes, (b) la **última cuota** (cur==total) SÍ cuenta, (c) cuando termina (cur>total) se cae del cálculo y el estimado baja. Aplica en `cardEstimate`, vista Cuotas, vista Gastos, txHtml y renderTarjetas.
 - **"Ajustar saldo" (feature):** botón ✎ en cada cuenta (web: modal `formSaldo`/`saveSaldo`; PWA: `editSaldo` con prompt). Poné lo que dice el banco/tu captura y la vista queda igual. Como `saldo mostrado = saldo_guardado + movimientos`, guarda `objetivo − movimientos`. Sirve para actualizar bancos y **Bull Market** (acciones que cambian). El botón aparece en TODAS las cuentas, incluida la de inversión.
+- **Fix carga en Efectivo (PWA):** si pagabas con "Efectivo" y no tenías una cuenta de tipo efectivo, el guardado se abortaba con un banner y no cargaba (Gastón no tiene cuenta efectivo). Ahora `ensureEfectivo()` crea sola la cuenta "Efectivo" (ARS, saldo 0) la primera vez y guarda el movimiento. Verificado.
 - **Fix seguridad menor:** `esc()` ahora escapa también `"` y `'` (antes una razón social con comillas rompía el form de factura).
 - **RLS verificado:** consulta sin login a `cuentas/movimientos/comprobantes/vencimientos` devuelve `[]` → RLS está activo, los datos no están expuestos con la anon key pública.
 - **Dólar:** se deja en 1528 hardcodeado (decisión de Gastón: las cuentas en dólares se usan como tal, no tocar).

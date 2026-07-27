@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.15</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.16</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -471,7 +471,7 @@ function vVenc(v){const vs=(DATA.vencs||[]).slice().sort((a,b)=>(a.vence||'').lo
   ${prox.length?`<table><thead><tr><th>Vence</th><th>Concepto</th><th>Cuota</th><th>Se debita de</th><th style="text-align:right">A pagar</th><th style="text-align:right">Saldo pend.</th></tr></thead><tbody>
   ${prox.map(x=>`<tr><td><b>${fdateLong(x.vence)}</b></td><td>${esc(x.concepto)}</td><td>${x.cuota_total?x.cuota_actual+' de '+x.cuota_total:'—'}</td><td>${esc((x.cuentas&&x.cuentas.nombre)?bankOf(x.cuentas.nombre):'—')}</td><td class="n">${money(x.monto)}</td><td class="n">${x.saldo_pendiente?money(x.saldo_pendiente):'—'}</td></tr>`).join('')}</tbody></table>`
   :'<div class="empty">No tenés vencimientos cargados.<br>Agregá tus planes de AFIP (Ganancias, IVA, Autónomos) y te aviso qué se debita, de qué cuenta y cuánto queda.</div>'}</div>
-  <div class="panel pad mt" style="background:var(--gold-wash);border-color:#e6d3ab"><b>Ejemplo:</b> “El 16 de agosto se debita la cuota 3/12 del Plan de Ganancias ($ 84.500) de tu cuenta BBVA. Saldo pendiente del plan: $ 760.500.” Cargá el plan una vez y la app te lo recuerda.</div>`;}
+  <div class="panel pad mt" style="background:var(--gold-wash);border-color:#e6d3ab"><b>Cómo funciona:</b> cargás un plan de AFIP una sola vez (cuántas cuotas, de qué cuenta se debita y la fecha) y la app te muestra la cuota de cada mes acá. En “¿Cuánto puedo gastar?” solo se descuenta la cuota del próximo mes, no todo el plan.</div>`;}
 
 // ---- RESÚMENES (repositorio para el contador) ----
 // Se guardan en Storage (bucket privado "comprobantes"), ruta {uid}/resumenes/{banco}/{ts}-{archivo}.
