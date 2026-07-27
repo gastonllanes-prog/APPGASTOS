@@ -126,6 +126,11 @@
   .tcard.efvo{background:linear-gradient(135deg,#2f7d4f,#184a30)}
   .tcard.otro{background:linear-gradient(135deg,#4a4f55,#2a2e33)}
   .tcard .bank{font-weight:800;font-size:1.05rem;letter-spacing:.02em}
+  .ct-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .logobadge{background:#fff;border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;min-height:32px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .logobadge img{height:18px;display:block}.logobadge .txt{font-weight:800;color:#1c211d;font-size:.9rem}
+  .netlogo{height:34px;border-radius:6px;flex:none}
+  .ct-name{font-size:.72rem;opacity:.85;margin-top:6px;font-weight:600}
   .acctline{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;padding:8px 0;border-top:1px solid rgba(255,255,255,.14)}
   .acctline .tog{font-size:.62rem;font-weight:700;background:rgba(255,255,255,.18);border:0;color:#fff;padding:2px 7px;border-radius:6px;margin-left:8px}
   .tcard .chip{width:34px;height:24px;border-radius:5px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.5));margin:14px 0 8px;opacity:.9}
@@ -157,7 +162,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.12</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.13</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -167,7 +172,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.12</span>
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.13</span>
         <button id="btnLogout">Salir</button>
       </div>
     </div>
@@ -264,7 +269,7 @@
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · <span class="appver">v0.12</span> · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.13</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -279,7 +284,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.12';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.13';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -367,10 +372,13 @@ const bankClass=c=>/nancy/i.test(c)?'nancy':/amex/i.test(c)?'amex':/macro/i.test
 const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA','Amex Santander':'Santander'};
 const bankOf=n=>{n=(n||'').toLowerCase();return n.includes('macro')?'Macro':n.includes('santander')?'Santander':n.includes('bbva')?'BBVA':n.includes('bull')?'Bull Market':n.includes('mercado')?'Mercado Pago':n.includes('efectivo')?'Efectivo':'Otro';};
 const BANK_CLASS={'Santander':'santander','Macro':'macro','BBVA':'bbva','Bull Market':'bull','Mercado Pago':'mp','Efectivo':'efvo','Otro':'otro'};
+const LOGO_BANK={'Santander':'./logos/santander.png','Macro':'./logos/macro.png','BBVA':'./logos/bbva.png','Mercado Pago':'./logos/mercadopago.png'};
+const netLogo=c=>/master/i.test(c)?'./logos/mastercard.png':/amex/i.test(c)?'./logos/amex.png':'./logos/visa.png';
+const logoBadge=bank=>LOGO_BANK[bank]?`<span class="logobadge"><img src="${LOGO_BANK[bank]}" alt="${esc(bank)}"></span>`:`<span class="logobadge"><span class="txt">${esc(bank)}</span></span>`;
 function acctCards(){const bal=balances();const g={};DATA.accts.forEach(a=>{const b=bankOf(a.nombre);(g[b]=g[b]||[]).push(a);});
   return Object.entries(g).map(([bank,accs])=>{const totA=accs.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),totU=accs.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0);
-    return `<div class="tcard ${BANK_CLASS[bank]||'otro'}"><div class="tt"><span class="bank">${esc(bank)}</span><span class="num" style="font-weight:800">${money(totA)}${totU?' · '+moneyU(totU):''}</span></div>
-      <div style="margin-top:10px">${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
+    return `<div class="tcard ${BANK_CLASS[bank]||'otro'}"><div class="ct-top">${logoBadge(bank)}<span class="num" style="font-weight:800;font-size:1.05rem">${money(totA)}${totU?' · '+moneyU(totU):''}</span></div>
+      <div style="margin-top:12px">${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
         return `<div class="acctline"><span>${esc(short)}${ah?' <span class="tagx" style="background:rgba(255,255,255,.22);color:#fff">ahorro</span>':''}${!isInv(a)?`<button class="tog" data-toga="${a.id}">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}</span><span class="num" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>
     </div>`;}).join('');}
 const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};   // límites de compra sacados de los resúmenes (los demás, cuando me pases el dato)
@@ -412,9 +420,10 @@ function srcTag(m){const t=m.tarjeta||'';if(/nancy/i.test(t))return `<span class
 function renderTarjetas(){const box=$('tcards');const cards=knownCards();
   if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste gastos con tarjeta.</div>';return;}
   box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const cuotas=DATA.movs.filter(m=>m.tarjeta===c&&m.cuota_total&&m.cuota_actual<m.cuota_total).sort((a,b)=>a.cuota_total-b.cuota_total);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const disp=lim!=null?lim-raw:null;
-    return `<div class="tcard ${bankClass(c)}"><div class="tt"><span class="bank">${esc(c)}</span><span>${/master/i.test(c)?'MASTER':'VISA'}</span></div>
-      <div class="chip"></div>
-      <div class="big num">${money(e.total)}</div>
+    return `<div class="tcard ${bankClass(c)}">
+      <div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div>
+      <div class="ct-name">${esc(c)}</div>
+      <div class="big num" style="margin-top:4px">${money(e.total)}</div>
       <div class="meta"><span>a pagar (próximo resumen)</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
       ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
       ${disp!=null?`<div class="meta" style="margin-top:2px;font-weight:700;opacity:.95"><span>disponible para gastar</span><span>${money(disp)}</span></div>`:''}

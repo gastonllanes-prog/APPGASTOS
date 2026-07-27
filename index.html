@@ -106,6 +106,14 @@
   .tcard .cardchip{width:42px;height:30px;border-radius:6px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.5));margin:14px 0}
   .tcard .b2{display:flex;justify-content:space-between;font-size:13px;opacity:.85}.tcard .num{font-family:var(--mono);letter-spacing:.12em;margin:20px 0 14px;font-size:15px;opacity:.9}
   .tcard .pay{font-size:11px;opacity:.75}.tcard .paybig{font-family:var(--serif);font-size:1.8rem;font-weight:600}
+  .tcard.bull{background:linear-gradient(135deg,#5a4a86,#332a54)}.tcard.mp{background:linear-gradient(135deg,#00a7e1,#0b6ea8)}.tcard.efvo{background:linear-gradient(135deg,#2f7d4f,#184a30)}.tcard.otro{background:linear-gradient(135deg,#4a4f55,#2a2e33)}
+  .ct-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+  .logobadge{background:#fff;border-radius:9px;padding:7px 11px;display:inline-flex;align-items:center;min-height:34px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .logobadge img{height:20px;display:block}.logobadge .txt{font-weight:800;color:#1c211d}
+  .netlogo{height:38px;border-radius:6px}
+  .ct-name{font-size:12px;opacity:.85;font-weight:600;margin-bottom:2px}
+  .acctrow2{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;padding:9px 0;border-top:1px solid rgba(255,255,255,.16);color:#f2f4f6}
+  .acctrow2 .tog{font-size:10.5px;font-weight:700;background:rgba(255,255,255,.2);border:0;color:#fff;padding:2px 8px;border-radius:6px;margin-left:8px}
   .drop{border:1.5px dashed var(--line);border-radius:14px;padding:24px;text-align:center;color:var(--ink-2);background:var(--surface);transition:.15s}
   .drop.over{border-color:var(--pine);background:var(--pine-wash);color:var(--pine-ink)}
   .drop .pick{display:inline-block;margin-top:10px;background:var(--pine);color:#f4f1ea;border-radius:9px;padding:8px 16px;font-weight:600;font-size:13px}
@@ -137,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.12</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.13</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -262,7 +270,14 @@ const isUSD=a=>a.moneda==='USD';
 function patr(bal){let ars=0,usd=0;DATA.accts.forEach(a=>{const v=bal[a.id]||0;if(isUSD(a)){usd+=v;ars+=v*USD;}else{ars+=v;usd+=v/USD;}});return{ars,usd,arsAccts:DATA.accts.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),usdAccts:DATA.accts.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0)};}
 function catAgg(ms){const g={};ms.filter(m=>m.tipo==='gasto').forEach(m=>{const n=(m.categorias&&m.categorias.nombre)||'Otros',e=(m.categorias&&m.categorias.emoji)||'•';(g[n]=g[n]||{v:0,e,items:[]});g[n].v+=+m.monto;g[n].items.push(m);});return Object.entries(g).map(([n,o])=>({n,...o})).sort((a,b)=>b.v-a.v);}
 const accName=id=>{const a=DATA.accts.find(x=>x.id===id);return a?a.nombre:null;};
-const bankOf=s=>{s=(s||'').toLowerCase();return s.includes('macro')?'Macro':s.includes('santander')?'Santander':s.includes('bbva')?'BBVA':s.includes('bull')?'Bull Market':(s.split('·')[0].trim()||'Otro');};
+const bankOf=s=>{s=(s||'').toLowerCase();return s.includes('macro')?'Macro':s.includes('santander')?'Santander':s.includes('bbva')?'BBVA':s.includes('bull')?'Bull Market':s.includes('mercado')?'Mercado Pago':s.includes('efectivo')?'Efectivo':(s.split('·')[0].trim()||'Otro');};
+const BANK_CLASS={'Santander':'santander','Macro':'macro','BBVA':'bbva','Bull Market':'bull','Mercado Pago':'mp','Efectivo':'efvo','Otro':'otro'};
+const LOGO_BANK={'Santander':'./logos/santander.png','Macro':'./logos/macro.png','BBVA':'./logos/bbva.png','Mercado Pago':'./logos/mercadopago.png'};
+const netLogoW=c=>/master/i.test(c)?'./logos/mastercard.png':/amex/i.test(c)?'./logos/amex.png':'./logos/visa.png';
+const logoBadge=bank=>LOGO_BANK[bank]?`<span class="logobadge"><img src="${LOGO_BANK[bank]}" alt="${esc(bank)}"></span>`:`<span class="logobadge"><span class="txt">${esc(bank)}</span></span>`;
+async function toggleAhorro(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const nv=!esAhorro(a);a.ahorro=nv;
+  if(!DEMO&&session){const {error}=await db.from('cuentas').update({ahorro:nv}).eq('id',id);if(error){a.ahorro=!nv;alert('No se pudo (¿corriste el SQL de "ahorro"?): '+error.message);return;}}
+  render();}
 
 // PANEL
 const isInv=a=>a.tipo==='inversion';
@@ -360,15 +375,17 @@ function srcTag(m){const t=m.tarjeta||'';if(m.nancy||/nancy/i.test(t))return `<s
 function wireCats(root){root.querySelectorAll('.catbtn').forEach(b=>b.onclick=()=>{const ex=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',!ex);b.parentElement.querySelector('.subs').classList.toggle('hide',ex);});}
 
 // CUENTAS
-function vCuentas(v){const bal=balances(),P=patr(bal),banks={};DATA.accts.forEach(a=>{(banks[bankOf(a.nombre)]=banks[bankOf(a.nombre)]||[]).push(a);});
-  let html='';Object.entries(banks).forEach(([bank,accs])=>{const totA=accs.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),totU=accs.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0);
-    html+=`<div class="panel bankgrp"><div class="bankhd"><div class="bn">🏦 ${esc(bank)}</div><div class="bt">${money(totA)}${totU?' · '+moneyU(totU):''}</div></div>
-    ${accs.map(a=>`<div class="acct"><span class="cur ${isUSD(a)?'usd':''}">${isUSD(a)?'US$':'AR$'}</span><span class="an">${esc(a.nombre.split('·').slice(1).join('·').trim()||a.nombre)}</span><span class="av">${isUSD(a)?moneyU(bal[a.id]||0):money(bal[a.id]||0)}</span></div>`).join('')}</div>`;});
+function vCuentas(v){const bal=balances(),H=health(bal),banks={};DATA.accts.forEach(a=>{(banks[bankOf(a.nombre)]=banks[bankOf(a.nombre)]||[]).push(a);});
+  const tiles=Object.entries(banks).map(([bank,accs])=>{const totA=accs.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),totU=accs.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0);
+    return `<div class="tcard ${BANK_CLASS[bank]||'otro'}"><div class="ct-top">${logoBadge(bank)}<span style="font-weight:700;font-family:var(--mono)">${money(totA)}${totU?' · '+moneyU(totU):''}</span></div>
+    ${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
+      return `<div class="acctrow2"><span>${esc(short)}${ah?' <span style="background:rgba(255,255,255,.22);padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700">ahorro</span>':''}${!isInv(a)?`<button class="tog" onclick="toggleAhorro('${a.id}')">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}</span><span class="mono" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>`;}).join('');
   v.innerHTML=`<div class="row3" style="margin-bottom:18px">
-    <div class="mini"><div class="k">Total en cuentas de pesos</div><div class="v">${money(P.arsAccts)}</div></div>
-    <div class="mini"><div class="k">Total en cuentas de dólares</div><div class="v">${moneyU(P.usdAccts)}</div></div>
-    <div class="mini"><div class="k">Patrimonio consolidado</div><div class="v">${money(P.ars)}</div><div style="font-size:11px;color:var(--ink-3);margin-top:2px" class="mono">≈ ${moneyU(P.usd)}</div></div></div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="ph" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px" onclick="formCuenta()">+ Agregar cuenta</button></div>${html}`;}
+    <div class="mini"><div class="k">Pesos operativos</div><div class="v">${money(H.opPesos)}</div></div>
+    <div class="mini"><div class="k">Dólares operativos</div><div class="v">${moneyU(H.opUsd)}</div></div>
+    <div class="mini"><div class="k">Ahorros</div><div class="v" style="color:var(--plum)">${money(H.ahoTotal)}</div></div></div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="ph" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px" onclick="formCuenta()">+ Agregar cuenta</button></div>
+  <div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">${tiles}</div>`;}
 
 // TARJETAS
 const bankClassW=c=>/nancy/i.test(c)?'nancy':/amex/i.test(c)?'amex':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
@@ -378,7 +395,7 @@ function vTarjetas(v){
   const list=[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
   const cards=list.map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim:CARD_LIMIT[t]}));
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="b2"><span style="font-weight:700">${esc(c.t)}</span><span>${/master/i.test(c.t)?'MASTER':'VISA'}</span></div><div class="cardchip"></div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(c.lim-c.full)}<span style="opacity:.7"> · de ${money(c.lim)}</span></div>`:''}${c.full>c.total+1?`<div class="pay" style="opacity:.75;margin-top:4px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
+    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="ct-top">${logoBadge(CARD_ACCT[c.t]||'')}<img class="netlogo" src="${netLogoW(c.t)}" alt=""></div><div class="ct-name">${esc(c.t)}</div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(c.lim-c.full)}<span style="opacity:.7"> · de ${money(c.lim)}</span></div>`:''}${c.full>c.total+1?`<div class="pay" style="opacity:.75;margin-top:4px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
   <div class="panel mt"><div class="ph"><h3>Subir resumen de tarjeta</h3><span class="meta">PDF o Excel</span></div><div class="pad"><div class="drop"><div style="font-size:1.6rem">📄</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Lo leo, categorizo cada consumo y te digo el total a pagar y los vencimientos.</div><label class="pick">Elegir archivo<input type="file" style="display:none"></label></div><div style="font-size:12px;color:var(--ink-3);margin-top:10px">La lectura automática del PDF corre del lado del servidor (la estamos terminando). Por ahora, pasámelo por el chat y lo cargo.</div></div></div>`;}
 
 // CUOTAS
