@@ -298,7 +298,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.14';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.15';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -378,10 +378,16 @@ function vencProx(){const t=today();const lim=new Date(t.getFullYear(),t.getMont
   return (DATA.vencs||[]).filter(x=>x.estado!=='pagado'&&x.vence&&new Date(x.vence+'T00:00:00')<lim);}
 
 // próximo pago estimado por tarjeta: cuotas que siguen + consumos del ciclo abierto (aún sin cerrar)
+// Estado de cuotas HOY: la cuota "actual" avanza sola con los meses desde que se cargó.
+// Arregla (a) que no quede clavada en 1/N y (b) que la última cuota (cur==total) SÍ cuente.
+function cuotaCur(m){if(!m.cuota_total)return null;const total=+m.cuota_total,base=+m.cuota_actual||1;
+  const ref=m.created_at?new Date(m.created_at):new Date((m.fecha||'')+'T00:00:00');const t=today();
+  let el=(t.getFullYear()-ref.getFullYear())*12+(t.getMonth()-ref.getMonth());if(el<0||isNaN(el))el=0;
+  const cur=base+el;return{cur,total,actual:Math.min(cur,total),activa:cur>=1&&cur<=total,restantesIncl:Math.max(0,total-cur+1)};}
 function cardEstimate(card){
   const cy=CYCLES[card]||{cierre:1,vto:10};const cierreISO=lastCierreISO(cy.cierre);
   const ms=DATA.movs.filter(m=>m.tarjeta===card);
-  const cuotasMes=ms.filter(m=>m.cuota_total&&m.cuota_actual<m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
+  const cuotasMes=ms.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
   const cicloAbierto=ms.filter(m=>!m.cuota_total&&(m.fecha||'')>cierreISO).reduce((s,m)=>s+ +m.monto,0);
   return{vto:nextDay(cy.vto),cuotasMes,cicloAbierto,total:cuotasMes+cicloAbierto};
 }
@@ -397,7 +403,7 @@ function acctCards(){const bal=balances();const g={};DATA.accts.forEach(a=>{cons
   return Object.entries(g).map(([bank,accs])=>{const totA=accs.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),totU=accs.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0);
     return `<div class="tcard ${BANK_CLASS[bank]||'otro'}"><div class="ct-top">${logoBadge(bank)}<span class="num" style="font-weight:800;font-size:1.05rem">${money(totA)}${totU?' · '+moneyU(totU):''}</span></div>
       <div style="margin-top:12px">${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
-        return `<div class="acctline"><span>${esc(short)}${ah?' <span class="tagx" style="background:rgba(255,255,255,.22);color:#fff">ahorro</span>':''}${!isInv(a)?`<button class="tog" data-toga="${a.id}">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}</span><span class="num" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>
+        return `<div class="acctline"><span>${esc(short)}${ah?' <span class="tagx" style="background:rgba(255,255,255,.22);color:#fff">ahorro</span>':''}${!isInv(a)?`<button class="tog" data-toga="${a.id}">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}<button class="tog" data-edit="${a.id}">✎ saldo</button></span><span class="num" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>
     </div>`;}).join('');}
 const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};   // límites de compra sacados de los resúmenes (los demás, cuando me pases el dato)
 const knownCards=()=>[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
@@ -420,7 +426,7 @@ function renderPay(){const box=$('payList');const items=[];
     <div class="val num">${money(i.val)}</div></div>`).join('');
 }
 function renderHome(){const ms=DATA.movs.slice(0,8);$('cntMov').textContent=DATA.movs.length+' movs';
-  const g=$('acctGlance');if(g){g.innerHTML=acctCards();g.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));}
+  const g=$('acctGlance');if(g){g.innerHTML=acctCards();g.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));g.querySelectorAll('[data-edit]').forEach(bn=>bn.onclick=()=>editSaldo(bn.dataset.edit));}
   const box=$('listHome');if(!ms.length){box.innerHTML='<div class="empty"><span class="e">📭</span>Cargá tu primer movimiento.</div>';return;}
   box.innerHTML=ms.map(txHtml).join('');
   box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delMov(b.dataset.del));
@@ -428,7 +434,7 @@ function renderHome(){const ms=DATA.movs.slice(0,8);$('cntMov').textContent=DATA
 function txHtml(m){const cat=m.categorias||{};const isIng=m.tipo==='ingreso';const src=srcTag(m);
   return `<div class="li"><div class="ic">${cat.emoji||(isIng?'💰':'💸')}</div>
     <div class="mm"><div class="t">${esc((cat.nombre||(isIng?'Ingreso':'Gasto')))}${m.descripcion?' · '+esc(m.descripcion):''}</div>
-    <div class="s">${fdate(m.fecha)} ${src} ${m.cuota_total?`<span class="tagx cuo">cuota ${m.cuota_actual}/${m.cuota_total}</span>`:''} <span class="tagx ${m.ambito==='actividad'?'a':'p'}">${m.ambito}</span></div></div>
+    <div class="s">${fdate(m.fecha)} ${src} ${(()=>{const c=m.cuota_total?cuotaCur(m):null;return c?`<span class="tagx cuo">cuota ${c.actual}/${c.total}</span>`:'';})()} <span class="tagx ${m.ambito==='actividad'?'a':'p'}">${m.ambito}</span></div></div>
     <div class="amt2 ${isIng?'pos':''} num">${isIng?'+':'–'}${money(m.monto)}</div>
     ${m.id?`<button class="del" data-del="${m.id}">✕</button>`:''}</div>`;
 }
@@ -437,7 +443,7 @@ function srcTag(m){const t=m.tarjeta||'';if(/nancy/i.test(t))return `<span class
 
 function renderTarjetas(){const box=$('tcards');const cards=knownCards();
   if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste gastos con tarjeta.</div>';return;}
-  box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const cuotas=DATA.movs.filter(m=>m.tarjeta===c&&m.cuota_total&&m.cuota_actual<m.cuota_total).sort((a,b)=>a.cuota_total-b.cuota_total);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const disp=lim!=null?lim-raw:null;
+  box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const cuotas=DATA.movs.filter(m=>{if(m.tarjeta!==c)return false;const cc=cuotaCur(m);return cc&&cc.activa;}).sort((a,b)=>a.cuota_total-b.cuota_total);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const disp=lim!=null?lim-raw:null;
     return `<div class="tcard ${bankClass(c)}">
       <div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div>
       <div class="ct-name">${esc(c)}</div>
@@ -446,13 +452,14 @@ function renderTarjetas(){const box=$('tcards');const cards=knownCards();
       ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
       ${disp!=null?`<div class="meta" style="margin-top:2px;font-weight:700;opacity:.95"><span>disponible para gastar</span><span>${money(disp)}</span></div>`:''}
       ${raw>e.total+1?`<div class="meta" style="margin-top:2px;opacity:.75"><span>último resumen cargado</span><span>${money(raw)}</span></div>`:''}
-      ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>`<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${m.cuota_actual}/${m.cuota_total}</span><span class="num">${money(m.monto)}</span></div>`).join('')}</div>`:''}
+      ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>{const cc=cuotaCur(m);return `<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${cc.actual}/${cc.total}</span><span class="num">${money(m.monto)}</span></div>`;}).join('')}</div>`:''}
     </div>`;}).join('')+`<div class="foot">"Disponible" = límite de compra − usado (donde tengo el límite del resumen). "A pagar" = próximo resumen; "último resumen" = el que ya cerró.</div>`;
 }
 function renderCuentas(){const box=$('accList');
   if(!DATA.accts.length){box.innerHTML='<div class="empty"><span class="e">🏦</span>Agregá tu primera cuenta abajo.</div>';return;}
   box.innerHTML=acctCards();
   box.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));
+  box.querySelectorAll('[data-edit]').forEach(bn=>bn.onclick=()=>editSaldo(bn.dataset.edit));
 }
 
 // ---- cargar: wiring ----
@@ -534,6 +541,16 @@ async function addAcc(){const nombre=$('accNombre').value.trim();if(!nombre)retu
 async function toggleAhorro(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const nv=!esAhorro(a);a.ahorro=nv;
   if(!DEMO&&session){const {error}=await db.from('cuentas').update({ahorro:nv}).eq('id',id);if(error){a.ahorro=!nv;banner('No se pudo (¿corriste el SQL de "ahorro"?): '+error.message);return;}}
   banner(nv?'Marcada como ahorro':'Ahora es operativo',true);renderAll();}
+// Ajustar saldo: el usuario pone lo que dice el banco (o su captura) y la vista queda igual.
+// saldo mostrado = saldo_guardado + movimientos → guardamos (objetivo − movimientos) para mostrar el objetivo.
+async function editSaldo(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const disp=balances()[id]||0;const movs=disp-((+a.saldo)||0);
+  const def=isUSD(a)?disp.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):String(Math.round(disp));
+  const val=prompt('Saldo real de "'+a.nombre+'" (lo que dice el banco / tu captura):',def);
+  if(val===null)return;
+  const target=parseFloat(String(val).replace(/\./g,'').replace(',','.'));if(isNaN(target))return banner('Número inválido.');
+  const nuevo=target-movs,prev=a.saldo;a.saldo=nuevo;
+  if(!DEMO&&session){const {error}=await db.from('cuentas').update({saldo:nuevo}).eq('id',id);if(error){a.saldo=prev;banner('No se pudo: '+error.message);return;}}
+  banner('Saldo actualizado ✓',true);renderAll();}
 async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
   if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}else{const {error}=await db.from('movimientos').delete().eq('id',id);if(error)return banner('No se pudo borrar: '+error.message);await reload();}
   banner('Borrado',true);renderAll();

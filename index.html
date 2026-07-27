@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.14</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.15</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -279,6 +279,19 @@ const logoBadge=bank=>LOGO_BANK[bank]?`<span class="logobadge"><img src="${LOGO_
 async function toggleAhorro(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const nv=!esAhorro(a);a.ahorro=nv;
   if(!DEMO&&session){const {error}=await db.from('cuentas').update({ahorro:nv}).eq('id',id);if(error){a.ahorro=!nv;alert('No se pudo (¿corriste el SQL de "ahorro"?): '+error.message);return;}}
   render();}
+// Ajustar saldo: el usuario pone lo que dice el banco (o su captura) y la vista queda igual.
+// Como el saldo mostrado = saldo_guardado + movimientos, guardamos (objetivo − movimientos) para que muestre el objetivo.
+function fmtSaldoInput(a,disp){return isUSD(a)?disp.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):String(Math.round(disp));}
+function formSaldo(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const disp=balances()[id]||0;
+  modal('Ajustar saldo',`<div style="font-size:13px;color:var(--ink-2);margin-bottom:8px">Poné el saldo <b>tal cual lo dice el banco</b> (o tu captura). La app lo deja igual en la vista.</div>
+   <div style="font-size:12px;color:var(--ink-3);margin-bottom:12px">${esc(a.nombre)} · hoy muestra <b>${isUSD(a)?moneyU(disp):money(disp)}</b></div>
+   <div class="fld"><label>Saldo real ${isUSD(a)?'(US$)':'($)'}</label><input id="s_saldo" inputmode="decimal" value="${fmtSaldoInput(a,disp)}"></div>
+   <button class="save" onclick="saveSaldo('${id}')">Guardar</button>`);}
+async function saveSaldo(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;const disp=balances()[id]||0;const movs=disp-((+a.saldo)||0);
+  const target=parseFloat(($('s_saldo').value||'').replace(/\./g,'').replace(',','.'));if(isNaN(target))return alert('Poné un número válido.');
+  const nuevo=target-movs,prev=a.saldo;a.saldo=nuevo;
+  if(!DEMO&&session){const {error}=await db.from('cuentas').update({saldo:nuevo}).eq('id',id);if(error){a.saldo=prev;alert('No se pudo: '+error.message);return;}}
+  closeModal();render();}
 
 // PANEL
 const isInv=a=>a.tipo==='inversion';
@@ -288,8 +301,14 @@ const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierr
 function todayW(){return DEMO?new Date(2026,6,26):new Date();}
 function lastCierreW(day){const t=todayW();let d=new Date(t.getFullYear(),t.getMonth(),day);if(d>t)d=new Date(t.getFullYear(),t.getMonth()-1,day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function cardsInUse(){const s=[];DATA.movs.forEach(m=>{if(m.tarjeta&&!s.includes(m.tarjeta))s.push(m.tarjeta);});return s;}
+// Estado de cuotas HOY: la cuota "actual" avanza sola con los meses desde que se cargó.
+// Arregla (a) que no quede clavada en 1/N y (b) que la última cuota (cur==total) SÍ cuente.
+function cuotaCur(m){if(!m.cuota_total)return null;const total=+m.cuota_total,base=+m.cuota_actual||1;
+  const ref=m.created_at?new Date(m.created_at):new Date((m.fecha||'')+'T00:00:00');const t=todayW();
+  let el=(t.getFullYear()-ref.getFullYear())*12+(t.getMonth()-ref.getMonth());if(el<0||isNaN(el))el=0;
+  const cur=base+el;return{cur,total,actual:Math.min(cur,total),activa:cur>=1&&cur<=total,restantesIncl:Math.max(0,total-cur+1)};}
 function cardEstimate(card){const cy=CYCLES[card]||{cierre:1,vto:10};const cierre=lastCierreW(cy.cierre);const ms=DATA.movs.filter(m=>m.tarjeta===card);
-  const cuotasMes=ms.filter(m=>m.cuota_total&&m.cuota_actual<m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
+  const cuotasMes=ms.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
   const ciclo=ms.filter(m=>!m.cuota_total&&(m.fecha||'')>cierre).reduce((s,m)=>s+ +m.monto,0);
   return cuotasMes+ciclo;}
 // Vencimientos que hay que pagar en el horizonte inmediato (hasta 1 mes hacia adelante).
@@ -357,7 +376,7 @@ function compBar(H,iva){const total=H.liqARS+H.usdDisp*USD+H.invARS||1;
 // GASTOS
 function vGastos(v){const ms=fmovs(),cats=catAgg(ms),max=cats[0]?cats[0].v:1;
   const g=ms.filter(m=>m.tipo==='gasto');
-  const cuotasMes=g.filter(m=>m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
+  const cuotasMes=g.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
   const unicos=g.filter(m=>!m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
   v.innerHTML=`<div class="row3" style="margin-bottom:18px">
     <div class="mini"><div class="k">Gasto del mes (sin cuotas)</div><div class="v">${money(unicos)}</div></div>
@@ -365,7 +384,7 @@ function vGastos(v){const ms=fmovs(),cats=catAgg(ms),max=cats[0]?cats[0].v:1;
     <div class="mini"><div class="k">Total a pagar</div><div class="v" style="color:var(--neg)">${money(unicos+cuotasMes)}</div></div></div>
   <div class="panel">${cats.map(c=>catRow(c,max)).join('')||'<div class="empty">Sin gastos en este período. Cargá con "+ Cargar" arriba.</div>'}</div>`;wireCats(v);}
 function catRow(c,max){return `<div class="catrow"><button class="catbtn" aria-expanded="false"><span class="em">${c.e}</span><span class="nm">${esc(c.n)}</span><span class="bar"><i style="width:${Math.max(4,c.v/max*100)}%;background:${catColor(c.n)}"></i></span><span class="amt">${money(c.v)}</span><span class="chev">›</span></button><div class="subs hide">${c.items.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(txHtml).join('')}</div></div>`;}
-function txHtml(m){const cuo=m.cuota_total?`<span class="tag cuo">cuota ${m.cuota_actual}/${m.cuota_total}</span>`:'';const rc=m.id?`<button class="recat" title="Cambiar categoría" onclick="formReCat('${m.id}')">⋯</button>`:'';return `<div class="txrow"><span class="d">${fdate(m.fecha)}</span><span class="t">${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||'Gasto')}</span>${cuo}${srcTag(m)}<span class="amt">${money(m.monto)}</span>${rc}</div>`;}
+function txHtml(m){const cc=m.cuota_total?cuotaCur(m):null;const cuo=cc?`<span class="tag cuo">cuota ${cc.actual}/${cc.total}</span>`:'';const rc=m.id?`<button class="recat" title="Cambiar categoría" onclick="formReCat('${m.id}')">⋯</button>`:'';return `<div class="txrow"><span class="d">${fdate(m.fecha)}</span><span class="t">${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||'Gasto')}</span>${cuo}${srcTag(m)}<span class="amt">${money(m.monto)}</span>${rc}</div>`;}
 function formReCat(id){const m=DATA.movs.find(x=>x.id===id);if(!m)return;
   const cats=(DATA.cats||[]).slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>({v:c.id,t:(c.emoji?c.emoji+' ':'')+c.nombre}));
   const cur=(m.categorias&&m.categorias.nombre)||'—';
@@ -385,7 +404,7 @@ function vCuentas(v){const bal=balances(),H=health(bal),banks={};DATA.accts.forE
   const tiles=Object.entries(banks).map(([bank,accs])=>{const totA=accs.filter(a=>!isUSD(a)).reduce((s,a)=>s+(bal[a.id]||0),0),totU=accs.filter(isUSD).reduce((s,a)=>s+(bal[a.id]||0),0);
     return `<div class="tcard ${BANK_CLASS[bank]||'otro'}"><div class="ct-top">${logoBadge(bank)}<span style="font-weight:700;font-family:var(--mono)">${money(totA)}${totU?' · '+moneyU(totU):''}</span></div>
     ${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
-      return `<div class="acctrow2"><span>${esc(short)}${ah?' <span style="background:rgba(255,255,255,.22);padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700">ahorro</span>':''}${!isInv(a)?`<button class="tog" onclick="toggleAhorro('${a.id}')">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}</span><span class="mono" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>`;}).join('');
+      return `<div class="acctrow2"><span>${esc(short)}${ah?' <span style="background:rgba(255,255,255,.22);padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:700">ahorro</span>':''}${!isInv(a)?`<button class="tog" onclick="toggleAhorro('${a.id}')">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}<button class="tog" onclick="formSaldo('${a.id}')">✎ saldo</button></span><span class="mono" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>`;}).join('');
   v.innerHTML=`<div class="row3" style="margin-bottom:18px">
     <div class="mini"><div class="k">Pesos operativos</div><div class="v">${money(H.opPesos)}</div></div>
     <div class="mini"><div class="k">Dólares operativos</div><div class="v">${moneyU(H.opUsd)}</div></div>
@@ -405,8 +424,8 @@ function vTarjetas(v){
   <div class="panel mt"><div class="ph"><h3>Subir resumen de tarjeta</h3><span class="meta">PDF o Excel</span></div><div class="pad"><div class="drop"><div style="font-size:1.6rem">📄</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Lo leo, categorizo cada consumo y te digo el total a pagar y los vencimientos.</div><label class="pick">Elegir archivo<input type="file" style="display:none"></label></div><div style="font-size:12px;color:var(--ink-3);margin-top:10px">La lectura automática del PDF corre del lado del servidor (la estamos terminando). Por ahora, pasámelo por el chat y lo cargo.</div></div></div>`;}
 
 // CUOTAS
-function vCuotas(v){const cuo=DATA.movs.filter(m=>m.cuota_total);const banks={};cuo.forEach(m=>{const b=bankOf(m.tarjeta);(banks[b]=banks[b]||{}); const t=m.tarjeta;(banks[b][t]=banks[b][t]||[]).push(m);});
-  const restante=m=>+m.monto*((m.cuota_total-m.cuota_actual)+1);
+function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;});const banks={};cuo.forEach(m=>{const b=bankOf(m.tarjeta);(banks[b]=banks[b]||{}); const t=m.tarjeta;(banks[b][t]=banks[b][t]||[]).push(m);});
+  const restante=m=>{const c=cuotaCur(m);return +m.monto*(c?c.restantesIncl:1);};
   let grand=0,html='';
   Object.entries(banks).forEach(([bank,cardsO])=>{
     html+=`<div class="panel bankgrp"><div class="bankhd"><div class="bn">🏦 ${esc(bank)}</div></div>`;
@@ -414,7 +433,7 @@ function vCuotas(v){const cuo=DATA.movs.filter(m=>m.cuota_total);const banks={};
       const totCard=items.reduce((s,m)=>s+restante(m),0);grand+=totCard;
       html+=`<div style="padding:4px 20px 2px;font-weight:600;color:var(--ink-2);font-size:13px;border-top:1px solid var(--line-2)">${esc(card)}${/nancy/i.test(card)?' · <span class="tag nancy">Nancy</span>':''}</div>
       <table><thead><tr><th>Compra</th><th>Cuota</th><th style="text-align:right">Por mes</th><th style="text-align:right">Restante</th></tr></thead><tbody>
-      ${items.map(m=>`<tr><td>${esc(m.descripcion)}</td><td>${m.cuota_actual} de ${m.cuota_total}</td><td class="n">${money(m.monto)}</td><td class="n" style="color:var(--neg)">${money(restante(m))}</td></tr>`).join('')}
+      ${items.map(m=>{const c=cuotaCur(m);return `<tr><td>${esc(m.descripcion)}</td><td>${c.actual} de ${c.total}</td><td class="n">${money(m.monto)}</td><td class="n" style="color:var(--neg)">${money(restante(m))}</td></tr>`;}).join('')}
       <tr class="total"><td colspan="3">Total ${esc(card)}</td><td class="n">${money(totCard)}</td></tr></tbody></table>`;});
     html+=`</div>`;});
   const mensual=cuo.reduce((s,m)=>s+ +m.monto,0);
