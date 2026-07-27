@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.13</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.14</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -155,6 +155,7 @@
       <button class="nav-i" data-v="cuotas"><span class="ic">≡</span> Cuotas</button>
       <button class="nav-i" data-v="iva"><span class="ic">§</span> IVA y facturas</button>
       <button class="nav-i" data-v="venc"><span class="ic">◷</span> Vencimientos</button>
+      <button class="nav-i" data-v="resum"><span class="ic">📎</span> Resúmenes</button>
     </nav>
     <div class="who"><div class="avt">GL</div><div id="uEmail" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px">—</div><button id="btnLogout">Salir</button></div>
   </aside>
@@ -260,9 +261,9 @@ $('btnCargar').onclick=()=>formMov();
 
 function fmovs(){let ms=DATA.movs.slice();if(state.scope!=='todo')ms=ms.filter(m=>m.ambito===state.scope);
   if(state.period==='mes'){const n=new Date(),f=new Date(n.getFullYear(),n.getMonth(),1).toISOString().slice(0,10);ms=ms.filter(m=>(m.fecha||'')>=f);}return ms;}
-const T={panel:['Panel','Tu foto financiera completa'],gastos:['Gastos','Tocá una categoría para ver el detalle'],cuentas:['Cuentas','Por banco y por moneda'],tarjetas:['Tarjetas','Cuánto pagar de cada una'],cuotas:['Cuotas','Por banco y tarjeta, ordenadas'],iva:['IVA y facturas','Tu posición fiscal del período'],venc:['Vencimientos','Impuestos y planes de pago que se vienen']};
+const T={panel:['Panel','Tu foto financiera completa'],gastos:['Gastos','Tocá una categoría para ver el detalle'],cuentas:['Cuentas','Por banco y por moneda'],tarjetas:['Tarjetas','Cuánto pagar de cada una'],cuotas:['Cuotas','Por banco y tarjeta, ordenadas'],iva:['IVA y facturas','Tu posición fiscal del período'],venc:['Vencimientos','Impuestos y planes de pago que se vienen'],resum:['Resúmenes','Guardá los PDF por banco para tu contador']};
 function render(){if(!DATA)return;$('vtitle').textContent=T[state.view][0];$('vsub').textContent=T[state.view][1];
-  ({panel:vPanel,gastos:vGastos,cuentas:vCuentas,tarjetas:vTarjetas,cuotas:vCuotas,iva:vIva,venc:vVenc}[state.view]||vPanel)($('view'));}
+  ({panel:vPanel,gastos:vGastos,cuentas:vCuentas,tarjetas:vTarjetas,cuotas:vCuotas,iva:vIva,venc:vVenc,resum:vResum}[state.view]||vPanel)($('view'));}
 
 // agregación
 function balances(){const b={};DATA.accts.forEach(a=>b[a.id]=+a.saldo);DATA.movs.forEach(m=>{if(m.cuenta_id&&b[m.cuenta_id]!==undefined)b[m.cuenta_id]+=(m.tipo==='ingreso'?+m.monto:-m.monto);});return b;}
@@ -291,13 +292,18 @@ function cardEstimate(card){const cy=CYCLES[card]||{cierre:1,vto:10};const cierr
   const cuotasMes=ms.filter(m=>m.cuota_total&&m.cuota_actual<m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
   const ciclo=ms.filter(m=>!m.cuota_total&&(m.fecha||'')>cierre).reduce((s,m)=>s+ +m.monto,0);
   return cuotasMes+ciclo;}
+// Vencimientos que hay que pagar en el horizonte inmediato (hasta 1 mes hacia adelante).
+// Un plan de pagos AFIP se carga como N cuotas con distinta fecha; acá contamos SOLO la próxima,
+// no todo el plan, así el "disponible para gastar" no descuenta 6 cuotas de una.
+function vencProx(){const t=todayW();const lim=new Date(t.getFullYear(),t.getMonth()+1,t.getDate());
+  return (DATA.vencs||[]).filter(x=>x.estado!=='pagado'&&x.vence&&new Date(x.vence+'T00:00:00')<lim);}
 function health(bal){
   let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0;
   DATA.accts.forEach(a=>{const val=bal[a.id]||0;
     if(esAhorro(a)){isUSD(a)?ahoUsd+=val:ahoPesos+=val;}   // ahorro (Bull + efectivo/dólares guardados)
     else{isUSD(a)?opUsd+=val:opPesos+=val;}});             // operativo (lo que podés usar)
   const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c),0);   // hacia adelante, no resúmenes ya pagados
-  const vencPend=(DATA.vencs||[]).filter(x=>x.estado!=='pagado').reduce((s,x)=>s+(+x.monto||0),0);
+  const vencPend=vencProx().reduce((s,x)=>s+(+x.monto||0),0);        // solo la cuota del próximo mes, no todo el plan
   const dispPesos=opPesos-deudaTarj-vencPend;
   const ahoTotal=ahoPesos+ahoUsd*USD;
   return{opPesos,opUsd,ahoPesos,ahoUsd,ahoTotal,deudaTarj,vencPend,dispPesos,
@@ -325,7 +331,7 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <div class="hgrid">
       <div class="hcell"><div class="hk">Pesos operativos</div><div class="hv mono">${money(H.opPesos)}</div><div class="hs">sin ahorros</div></div>
       <div class="hcell"><div class="hk">− Tarjetas a pagar</div><div class="hv mono" style="color:var(--neg)">${money(H.deudaTarj)}</div><div class="hs">lo que falta pagar</div></div>
-      <div class="hcell"><div class="hk">− Impuestos por vencer</div><div class="hv mono" style="color:var(--neg)">${H.vencPend?money(H.vencPend):'$ 0'}</div><div class="hs">planes / vencimientos</div></div>
+      <div class="hcell"><div class="hk">− Impuestos por vencer</div><div class="hv mono" style="color:var(--neg)">${H.vencPend?money(H.vencPend):'$ 0'}</div><div class="hs">solo la cuota del próximo mes</div></div>
       <div class="hcell big ${pos?'good':'bad'}"><div class="hk">${pos?'Te queda para gastar':'Te falta (rojo)'}</div><div class="hv mono">${money(Math.abs(H.dispPesos))}</div><div class="hs">${pos?'en pesos, ya cubiertas las tarjetas':'los pesos no alcanzan a cubrir las tarjetas'}</div></div>
     </div>
     <div class="hnote">${pos
@@ -436,11 +442,76 @@ function vIva(v){const i=ivaPos(),max=Math.max(i.deb,i.cred,1),comps=DATA.comps.
 // VENCIMIENTOS
 function vVenc(v){const vs=(DATA.vencs||[]).slice().sort((a,b)=>(a.vence||'').localeCompare(b.vence||''));
   const prox=vs.filter(x=>x.estado!=='pagado');
-  v.innerHTML=`<div class="panel"><div class="ph"><h3>Próximos vencimientos y planes de pago</h3><button class="add" onclick="formVenc()">+ Agregar vencimiento</button></div>
+  const proxMes=vencProx().reduce((s,x)=>s+(+x.monto||0),0);
+  const totPend=prox.reduce((s,x)=>s+(+x.monto||0),0);
+  v.innerHTML=`<div class="row3" style="margin-bottom:18px">
+    <div class="mini iva"><div class="k">A pagar el mes que viene</div><div class="v" style="color:var(--neg)">${money(proxMes)}</div></div>
+    <div class="mini"><div class="k">Total pendiente (todo el plan)</div><div class="v">${money(totPend)}</div></div>
+    <div class="mini"><div class="k">Vencimientos cargados</div><div class="v">${prox.length}</div></div></div>
+  <div class="panel"><div class="ph"><h3>Próximos vencimientos y planes de pago</h3><button class="add" onclick="formVenc()">+ Agregar vencimiento</button></div>
   ${prox.length?`<table><thead><tr><th>Vence</th><th>Concepto</th><th>Cuota</th><th>Se debita de</th><th style="text-align:right">A pagar</th><th style="text-align:right">Saldo pend.</th></tr></thead><tbody>
   ${prox.map(x=>`<tr><td><b>${fdateLong(x.vence)}</b></td><td>${esc(x.concepto)}</td><td>${x.cuota_total?x.cuota_actual+' de '+x.cuota_total:'—'}</td><td>${esc((x.cuentas&&x.cuentas.nombre)?bankOf(x.cuentas.nombre):'—')}</td><td class="n">${money(x.monto)}</td><td class="n">${x.saldo_pendiente?money(x.saldo_pendiente):'—'}</td></tr>`).join('')}</tbody></table>`
   :'<div class="empty">No tenés vencimientos cargados.<br>Agregá tus planes de AFIP (Ganancias, IVA, Autónomos) y te aviso qué se debita, de qué cuenta y cuánto queda.</div>'}</div>
   <div class="panel pad mt" style="background:var(--gold-wash);border-color:#e6d3ab"><b>Ejemplo:</b> “El 16 de agosto se debita la cuota 3/12 del Plan de Ganancias ($ 84.500) de tu cuenta BBVA. Saldo pendiente del plan: $ 760.500.” Cargá el plan una vez y la app te lo recuerda.</div>`;}
+
+// ---- RESÚMENES (repositorio para el contador) ----
+// Se guardan en Storage (bucket privado "comprobantes"), ruta {uid}/resumenes/{banco}/{ts}-{archivo}.
+// No hace falta tabla: el listado sale del propio Storage.
+const RESUM_BANCOS=[{slug:'macro',name:'Macro'},{slug:'santander',name:'Santander'},{slug:'bbva',name:'BBVA'},{slug:'mercadopago',name:'Mercado Pago'},{slug:'afip',name:'AFIP / ARCA'},{slug:'otro',name:'Otro'}];
+const RESUM_BUCKET='comprobantes';
+const fmtSize=b=>b>=1e6?(b/1e6).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB';
+const cleanName=fn=>String(fn).replace(/^\d{10,}-/,'');
+function periodoDe(name){const s=String(name);const m=s.match(/(20\d{2})[-_.]?(0[1-9]|1[0-2])(?!\d)/)||s.match(/(0[1-9]|1[0-2])[-_.](20\d{2})/);if(!m)return '';const y=m[1].length===4?m[1]:m[2],mo=m[1].length===4?m[2]:m[1];return mo+'/'+y;}
+function downloadBlob(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
+function loadJSZip(){return window.JSZip?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('No cargó JSZip'));document.head.appendChild(s);});}
+let _resumBanco='macro';
+function vResum(v){
+  if(DEMO||!session){v.innerHTML='<div class="empty">Iniciá sesión para subir y ver tus resúmenes.</div>';return;}
+  const chips=RESUM_BANCOS.map(b=>`<button class="chip resb" data-slug="${b.slug}" style="${b.slug===_resumBanco?'background:var(--pine);color:#fff;border-color:var(--pine)':''}">${esc(b.name)}</button>`).join('');
+  v.innerHTML=`<div class="panel" style="margin-bottom:20px"><div class="ph"><h3>Subir resumen</h3><span class="meta">PDF o imagen · se guarda por banco</span></div>
+    <div class="pad">
+      <div style="font-size:12px;color:var(--ink-2);margin-bottom:8px">¿De qué banco es?</div>
+      <div class="chips" id="resChips" style="margin-bottom:14px">${chips}</div>
+      <div class="drop" id="resDrop"><div style="font-size:1.6rem">📎</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Se guarda en tu bóveda privada. Después lo bajás, o se lo exportás al contador por banco.</div><label class="pick">Elegir archivo<input type="file" id="resFile" accept="application/pdf,image/*" style="display:none"></label></div>
+      <div id="resMsg" style="font-size:12.5px;margin-top:10px;color:var(--ink-2)"></div>
+    </div></div>
+   <div id="resList"><div class="empty">Cargando resúmenes…</div></div>`;
+  wireResum();loadResumList();}
+function wireResum(){
+  document.querySelectorAll('#resChips .resb').forEach(b=>b.onclick=()=>{_resumBanco=b.dataset.slug;vResum($('view'));});
+  const dz=$('resDrop'),fi=$('resFile');
+  if(dz){dz.ondragover=e=>{e.preventDefault();dz.classList.add('over');};dz.ondragleave=()=>dz.classList.remove('over');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])doUploadResum(e.dataTransfer.files[0]);};}
+  if(fi)fi.onchange=e=>{if(e.target.files[0])doUploadResum(e.target.files[0]);};}
+async function doUploadResum(file){const msg=$('resMsg');const uid=session.user.id;
+  const safe=file.name.replace(/[^\w.\-]+/g,'_');const path=`${uid}/resumenes/${_resumBanco}/${Date.now()}-${safe}`;
+  msg.innerHTML='Subiendo…';
+  const {error}=await db.storage.from(RESUM_BUCKET).upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+  if(error){msg.innerHTML='<span style="color:var(--neg)">No se pudo subir: '+esc(error.message)+'</span>';return;}
+  msg.innerHTML='<span style="color:var(--pos)">✓ Subido.</span>';loadResumList();}
+async function listResumAll(){const uid=session.user.id;const res=[];
+  for(const b of RESUM_BANCOS){const {data}=await db.storage.from(RESUM_BUCKET).list(`${uid}/resumenes/${b.slug}`,{limit:200,sortBy:{column:'name',order:'desc'}});
+    (data||[]).forEach(f=>{if(f.name&&f.id!==null)res.push({slug:b.slug,banco:b.name,name:f.name,path:`${uid}/resumenes/${b.slug}/${f.name}`,size:(f.metadata&&f.metadata.size)||0});});}
+  return res;}
+async function loadResumList(){const box=$('resList');if(!box)return;
+  let all;try{all=await listResumAll();}catch(e){box.innerHTML='<div class="empty">No pude leer los resúmenes: '+esc(e.message||e)+'</div>';return;}
+  if(!all.length){box.innerHTML='<div class="empty">Todavía no subiste ningún resumen. Elegí el banco y arrastrá el PDF arriba.</div>';return;}
+  const byBank={};all.forEach(f=>{(byBank[f.banco]=byBank[f.banco]||[]).push(f);});
+  box.innerHTML=Object.entries(byBank).map(([banco,files])=>`<div class="panel bankgrp"><div class="bankhd"><div class="bn">📎 ${esc(banco)} <span style="font-weight:500;color:var(--ink-3);font-size:12px">· ${files.length}</span></div><button class="add" data-zip="${files[0].slug}" data-zipn="${esc(banco)}">⬇ Descargar todo</button></div>
+    ${files.map(f=>{const cn=cleanName(f.name),per=periodoDe(cn);return `<div class="acct"><span class="an">${esc(cn)}${per?` <span class="tag cuo">${per}</span>`:''}</span><span style="color:var(--ink-3);font-size:12px;margin-right:10px">${fmtSize(f.size)}</span><button data-dl="${esc(f.path)}" data-dln="${esc(cn)}" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;margin-right:6px;cursor:pointer">Descargar</button><button data-del="${esc(f.path)}" style="background:transparent;border:0;color:var(--ink-3);font-size:15px;cursor:pointer">🗑</button></div>`;}).join('')}</div>`).join('');
+  box.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>dlResum(b.dataset.dl,b.dataset.dln));
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delResum(b.dataset.del));
+  box.querySelectorAll('[data-zip]').forEach(b=>b.onclick=()=>zipBanco(b.dataset.zip,b.dataset.zipn));}
+async function dlResum(path,name){const {data,error}=await db.storage.from(RESUM_BUCKET).createSignedUrl(path,120,{download:name});if(error){alert('No se pudo: '+error.message);return;}window.open(data.signedUrl,'_blank');}
+async function delResum(path){if(!confirm('¿Borrar este resumen? No se puede deshacer.'))return;const {error}=await db.storage.from(RESUM_BUCKET).remove([path]);if(error){alert('No se pudo borrar: '+error.message);return;}loadResumList();}
+async function zipBanco(slug,banco){const uid=session.user.id;
+  try{await loadJSZip();
+    const {data}=await db.storage.from(RESUM_BUCKET).list(`${uid}/resumenes/${slug}`,{limit:200});
+    const files=(data||[]).filter(f=>f.id!==null);
+    if(!files.length){alert('No hay archivos de '+banco+'.');return;}
+    const zip=new JSZip();
+    for(const f of files){const p=`${uid}/resumenes/${slug}/${f.name}`;const su=await db.storage.from(RESUM_BUCKET).createSignedUrl(p,180);if(su.error)continue;const blob=await fetch(su.data.signedUrl).then(r=>r.blob());zip.file(cleanName(f.name),blob);}
+    const out=await zip.generateAsync({type:'blob'});downloadBlob(out,`resumenes-${slug}.zip`);
+  }catch(e){alert('No pude armar el ZIP: '+(e.message||e));}}
 
 // ---- FORMULARIOS (carga desde la web) ----
 function closeModal(){$('modalRoot').innerHTML='';}

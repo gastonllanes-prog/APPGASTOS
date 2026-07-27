@@ -1,7 +1,11 @@
 # HANDOFF — "Caja" · traspaso completo a Claude Code
 
-Estado a la fecha: **v0.13**, en producción en GitHub Pages, con datos reales en Supabase.
+Estado a la fecha: **v0.14**, en producción en GitHub Pages, con datos reales en Supabase.
 Este documento tiene TODO lo necesario para seguir sin contexto previo. Leer junto con `CLAUDE.md`.
+
+### Cambios v0.14
+- **Repositorio de resúmenes para el contador (roadmap 1 — HECHO):** pestaña "Resúmenes" en web y PWA. Sube PDF/imagen por banco a Storage (bucket privado `comprobantes`, ruta `{uid}/resumenes/{banco}/{ts}-{archivo}`), lista por banco, descarga individual y **"Descargar todo"** = ZIP por banco (JSZip lazy por CDN). Sin tabla nueva: el listado sale del propio Storage. Las políticas de Storage del bucket `comprobantes` ya estaban (owner-only), no hizo falta SQL. Período se parsea del nombre del archivo (busca `YYYY-MM`/`MM-YYYY`).
+- **Fix "impuestos por vencer" (plan de pagos):** el cálculo de "disponible para gastar" sumaba TODAS las cuotas del plan AFIP (6 × $616.862 = $3.701.174). Ahora `vencProx()` cuenta **solo lo que vence hasta 1 mes hacia adelante** (la cuota del próximo mes). La vista Vencimientos muestra un resumen "A pagar el mes que viene" vs "Total pendiente (todo el plan)" y sigue listando el plan completo.
 
 ---
 
@@ -66,7 +70,7 @@ Tablas y columnas ya migradas (todas con `user_id`, `created_at`, `updated_at`):
 
 ## 6. Roadmap pendiente (prioridad sugerida)
 
-1. **Repositorio de resúmenes para el contador** (lo más valioso): guardar los PDF de resúmenes por banco en Supabase Storage y poder **descargarlos/exportarlos por banco**, para mandarle a Ganancias sin re-bajar de cada banco. Necesita: subir a Storage (`comprobantes/{user_id}/...` o un bucket `resumenes`), tabla de índice (banco, tipo, período, url), y una vista de descarga. Guardar `archivo_url` en `comprobantes`/`vencimientos` cuando corresponda.
+1. ~~**Repositorio de resúmenes para el contador**~~ **HECHO en v0.14** (ver "Cambios v0.14"). Guardado en `comprobantes/{uid}/resumenes/{banco}/`, listado desde Storage, descarga individual + ZIP por banco. Pendiente opcional: vincular un resumen a su comprobante/vencimiento.
 2. **Transferencias entre cuentas propias** (banco → Mercado Pago): mover saldo sin contar como gasto/ingreso. Modelar como movimiento `transferencia` con origen y destino (falta columna `cuenta_destino_id` o dos asientos).
 3. **Gastos fijos** (Alquiler, gym): definir una vez, aparecen cada mes en "próximos pagos", marcar pagado + cómo se pagó, y **pausar** (vacaciones). Tabla nueva o reuso de `vencimientos` con flag recurrente + pausa.
 4. **Factura por foto/QR al cargar** (web y celular): "¿Te dieron factura?" → **leer el QR de AFIP** (exacto: `afip.gob.ar/fe/qr/?p=BASE64` → `atob` → JSON) con cámara o imagen; y PDF (ya resuelto en web, portar a la PWA). OCR de foto sin QR = último recurso, vía Edge Function (no exponer API key).

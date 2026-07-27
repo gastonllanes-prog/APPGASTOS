@@ -272,11 +272,25 @@
     <div class="foot">Caja · <span class="appver">v0.13</span> · conectado a tu Supabase</div>
   </div>
 
+  <!-- RESÚMENES -->
+  <div id="viewResumenes" class="hide">
+    <div class="sect"><span class="t">Resúmenes</span><span class="f">para tu contador</span></div>
+    <div class="card block pad">
+      <div style="font-size:.8rem;font-weight:700;margin-bottom:8px">¿De qué banco es?</div>
+      <div class="chips" id="resChips" style="margin-bottom:12px"></div>
+      <label class="save" id="resPick" style="background:var(--brand);display:block;text-align:center">📎 Elegir archivo o sacar foto<input type="file" id="resFile" accept="application/pdf,image/*" style="display:none"></label>
+      <div id="resMsg" style="font-size:.78rem;margin-top:10px;color:var(--ink-2);text-align:center"></div>
+    </div>
+    <div id="resList"><div class="empty"><span class="e">📎</span>Cargando…</div></div>
+    <div class="foot">Los PDF se guardan en tu bóveda privada. "Descargar todo" arma un ZIP por banco para el contador.</div>
+  </div>
+
   <div class="tabbar">
     <button id="tabInicio" class="on" data-v="inicio"><span class="ti">◆</span>Inicio</button>
     <button id="tabCargar" data-v="cargar"><span class="ti">＋</span>Cargar</button>
     <button id="tabTarjetas" data-v="tarjetas"><span class="ti">▧</span>Tarjetas</button>
     <button id="tabCuentas" data-v="cuentas"><span class="ti">▦</span>Cuentas</button>
+    <button id="tabResumenes" data-v="resumenes"><span class="ti">📎</span>Resúm.</button>
   </div>
 </div>
 
@@ -284,7 +298,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.13';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.14';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -356,8 +370,12 @@ function health(){const bal=balances();let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0
   // Deuda de tarjeta = lo que te queda por pagar hacia adelante (cuotas que siguen + consumos del ciclo abierto),
   // NO los resúmenes ya vencidos/pagados. Así coincide con "Próximos pagos".
   const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c).total,0);
-  const vencPend=(DATA.vencs||[]).filter(x=>x.estado!=='pagado').reduce((s,x)=>s+(+x.monto||0),0);
+  const vencPend=vencProx().reduce((s,x)=>s+(+x.monto||0),0);   // solo la cuota del próximo mes, no todo el plan
   return{bal,opPesos,opUsd,ahoPesos,ahoUsd,deudaTarj,vencPend,disp:opPesos-deudaTarj-vencPend};}
+// Vencimientos a pagar en el horizonte inmediato (hasta 1 mes adelante). Un plan AFIP son N cuotas
+// con distinta fecha; contamos SOLO la próxima para no descontar todo el plan del "disponible".
+function vencProx(){const t=today();const lim=new Date(t.getFullYear(),t.getMonth()+1,t.getDate());
+  return (DATA.vencs||[]).filter(x=>x.estado!=='pagado'&&x.vence&&new Date(x.vence+'T00:00:00')<lim);}
 
 // próximo pago estimado por tarjeta: cuotas que siguen + consumos del ciclo abierto (aún sin cerrar)
 function cardEstimate(card){
@@ -527,10 +545,54 @@ async function reload(){const [a,m,v]=await Promise.all([
   ]);DATA.accts=a.data||[];DATA.movs=m.data||[];DATA.vencs=(v&&v.data)||[];}
 
 function switchView(v){st.view=v;
-  ['inicio','cargar','tarjetas','cuentas'].forEach(x=>{$('view'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hide',x!==v);
+  ['inicio','cargar','tarjetas','cuentas','resumenes'].forEach(x=>{$('view'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hide',x!==v);
     $('tab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===v);});
+  if(v==='resumenes')renderResum();
   window.scrollTo(0,0);
 }
+
+// ---- RESÚMENES (repositorio para el contador) ----
+// Guardados en Storage (bucket privado "comprobantes"), ruta {uid}/resumenes/{banco}/{ts}-{archivo}.
+const RESUM_BANCOS=[{slug:'macro',name:'Macro'},{slug:'santander',name:'Santander'},{slug:'bbva',name:'BBVA'},{slug:'mercadopago',name:'Mercado Pago'},{slug:'afip',name:'AFIP / ARCA'},{slug:'otro',name:'Otro'}];
+const RESUM_BUCKET='comprobantes';
+const fmtSize=b=>b>=1e6?(b/1e6).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB';
+const cleanName=fn=>String(fn).replace(/^\d{10,}-/,'');
+function periodoDe(name){const s=String(name);const m=s.match(/(20\d{2})[-_.]?(0[1-9]|1[0-2])(?!\d)/)||s.match(/(0[1-9]|1[0-2])[-_.](20\d{2})/);if(!m)return '';const y=m[1].length===4?m[1]:m[2],mo=m[1].length===4?m[2]:m[1];return mo+'/'+y;}
+function downloadBlob(blob,name){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);}
+function loadJSZip(){return window.JSZip?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=res;s.onerror=()=>rej(new Error('No cargó JSZip'));document.head.appendChild(s);});}
+let _resB='macro';
+function renderResChips(){const box=$('resChips');if(!box)return;box.innerHTML=RESUM_BANCOS.map(b=>`<button class="chip ${b.slug===_resB?'on':''}" data-slug="${b.slug}">${esc(b.name)}</button>`).join('');
+  box.querySelectorAll('[data-slug]').forEach(b=>b.onclick=()=>{_resB=b.dataset.slug;renderResChips();});}
+function renderResum(){if(DEMO||!session){$('resList').innerHTML='<div class="empty"><span class="e">🔒</span>Iniciá sesión para subir resúmenes.</div>';return;}
+  renderResChips();const fi=$('resFile');if(fi)fi.onchange=e=>{if(e.target.files[0])doUploadResum(e.target.files[0]);};loadResumList();}
+async function doUploadResum(file){const uid=session.user.id;const safe=file.name.replace(/[^\w.\-]+/g,'_');const path=`${uid}/resumenes/${_resB}/${Date.now()}-${safe}`;
+  $('resMsg').textContent='Subiendo…';
+  const {error}=await db.storage.from(RESUM_BUCKET).upload(path,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+  if(error){$('resMsg').textContent='';banner('No se pudo subir: '+error.message);return;}
+  $('resMsg').textContent='';banner('Resumen subido ✓',true);loadResumList();}
+async function listResumAll(){const uid=session.user.id;const res=[];
+  for(const b of RESUM_BANCOS){const {data}=await db.storage.from(RESUM_BUCKET).list(`${uid}/resumenes/${b.slug}`,{limit:200,sortBy:{column:'name',order:'desc'}});
+    (data||[]).forEach(f=>{if(f.name&&f.id!==null)res.push({slug:b.slug,banco:b.name,name:f.name,path:`${uid}/resumenes/${b.slug}/${f.name}`,size:(f.metadata&&f.metadata.size)||0});});}
+  return res;}
+async function loadResumList(){const box=$('resList');if(!box)return;
+  let all;try{all=await listResumAll();}catch(e){box.innerHTML='<div class="empty">No pude leer: '+esc(e.message||e)+'</div>';return;}
+  if(!all.length){box.innerHTML='<div class="empty"><span class="e">📭</span>Todavía no subiste ningún resumen.</div>';return;}
+  const byBank={};all.forEach(f=>{(byBank[f.banco]=byBank[f.banco]||[]).push(f);});
+  box.innerHTML=Object.entries(byBank).map(([banco,files])=>`<div class="sect"><span class="t">${esc(banco)}</span><span class="f">${files.length} · <button data-zip="${files[0].slug}" data-zipn="${esc(banco)}" style="background:none;border:0;color:var(--brand);font-weight:700;font-size:.72rem">⬇ Descargar todo</button></span></div>
+    <div class="list">${files.map(f=>{const cn=cleanName(f.name),per=periodoDe(cn);return `<div class="li"><div class="ic">📄</div><div class="mm"><div class="t">${esc(cn)}</div><div class="s">${fmtSize(f.size)}${per?' · '+per:''}</div></div><button class="del" data-dl="${esc(f.path)}" data-dln="${esc(cn)}" style="color:var(--brand);font-weight:700;font-size:.8rem">Bajar</button><button class="del" data-del="${esc(f.path)}">🗑</button></div>`;}).join('')}</div>`).join('');
+  box.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>dlResum(b.dataset.dl,b.dataset.dln));
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delResum(b.dataset.del));
+  box.querySelectorAll('[data-zip]').forEach(b=>b.onclick=()=>zipBanco(b.dataset.zip,b.dataset.zipn));}
+async function dlResum(path,name){const {data,error}=await db.storage.from(RESUM_BUCKET).createSignedUrl(path,120,{download:name});if(error){banner('No se pudo: '+error.message);return;}window.open(data.signedUrl,'_blank');}
+async function delResum(path){if(!confirm('¿Borrar este resumen? No se puede deshacer.'))return;const {error}=await db.storage.from(RESUM_BUCKET).remove([path]);if(error){banner('No se pudo borrar: '+error.message);return;}banner('Borrado',true);loadResumList();}
+async function zipBanco(slug,banco){const uid=session.user.id;
+  try{banner('Armando ZIP…',true);await loadJSZip();
+    const {data}=await db.storage.from(RESUM_BUCKET).list(`${uid}/resumenes/${slug}`,{limit:200});
+    const files=(data||[]).filter(f=>f.id!==null);if(!files.length){banner('No hay archivos de '+banco+'.');return;}
+    const zip=new JSZip();
+    for(const f of files){const p=`${uid}/resumenes/${slug}/${f.name}`;const su=await db.storage.from(RESUM_BUCKET).createSignedUrl(p,180);if(su.error)continue;const blob=await fetch(su.data.signedUrl).then(r=>r.blob());zip.file(cleanName(f.name),blob);}
+    const out=await zip.generateAsync({type:'blob'});downloadBlob(out,`resumenes-${slug}.zip`);
+  }catch(e){banner('No pude armar el ZIP: '+(e.message||e));}}
 
 // ---- DEMO ----
 function demo(){
