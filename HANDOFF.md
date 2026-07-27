@@ -1,7 +1,14 @@
 # HANDOFF — "Caja" · traspaso completo a Claude Code
 
-Estado a la fecha: **v0.14**, en producción en GitHub Pages, con datos reales en Supabase.
+Estado a la fecha: **v0.15**, en producción en GitHub Pages, con datos reales en Supabase.
 Este documento tiene TODO lo necesario para seguir sin contexto previo. Leer junto con `CLAUDE.md`.
+
+### Cambios v0.15
+- **Cuotas de tarjeta que avanzan solas (fix):** nueva función `cuotaCur(m)` (en los dos HTML) calcula la cuota actual HOY = `cuota_actual` + meses transcurridos desde `created_at` (o `fecha` si no hay). Antes quedaban clavadas en 1/N. Ahora: (a) la cuota avanza mes a mes, (b) la **última cuota** (cur==total) SÍ cuenta, (c) cuando termina (cur>total) se cae del cálculo y el estimado baja. Aplica en `cardEstimate`, vista Cuotas, vista Gastos, txHtml y renderTarjetas.
+- **"Ajustar saldo" (feature):** botón ✎ en cada cuenta (web: modal `formSaldo`/`saveSaldo`; PWA: `editSaldo` con prompt). Poné lo que dice el banco/tu captura y la vista queda igual. Como `saldo mostrado = saldo_guardado + movimientos`, guarda `objetivo − movimientos`. Sirve para actualizar bancos y **Bull Market** (acciones que cambian). El botón aparece en TODAS las cuentas, incluida la de inversión.
+- **Fix seguridad menor:** `esc()` ahora escapa también `"` y `'` (antes una razón social con comillas rompía el form de factura).
+- **RLS verificado:** consulta sin login a `cuentas/movimientos/comprobantes/vencimientos` devuelve `[]` → RLS está activo, los datos no están expuestos con la anon key pública.
+- **Dólar:** se deja en 1528 hardcodeado (decisión de Gastón: las cuentas en dólares se usan como tal, no tocar).
 
 ### Cambios v0.14
 - **Repositorio de resúmenes para el contador (roadmap 1 — HECHO):** pestaña "Resúmenes" en web y PWA. Sube PDF/imagen por banco a Storage (bucket privado `comprobantes`, ruta `{uid}/resumenes/{banco}/{ts}-{archivo}`), lista por banco, descarga individual y **"Descargar todo"** = ZIP por banco (JSZip lazy por CDN). Sin tabla nueva: el listado sale del propio Storage. Las políticas de Storage del bucket `comprobantes` ya estaban (owner-only), no hizo falta SQL. Período se parsea del nombre del archivo (busca `YYYY-MM`/`MM-YYYY`).

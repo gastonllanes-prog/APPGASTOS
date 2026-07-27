@@ -310,7 +310,7 @@ let _accAhorro=false;
 const $=id=>document.getElementById(id);
 const money=n=>'$ '+Math.round(n).toLocaleString('es-AR');
 const moneyU=n=>'US$ '+Math.round(n).toLocaleString('es-AR');
-const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
 function banner(m,ok){const b=$('banner');b.textContent=m;b.className=(ok?'ok':'err')+' show';setTimeout(()=>b.className=b.className.replace('show',''),ok?2000:5000);const s=$('status');if(s){s.textContent=m;s.style.color=ok?'var(--pos)':'var(--neg)';}}
 try{db=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
 
