@@ -115,8 +115,13 @@
   .acc .ai{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:1.05rem;flex:none;background:var(--surface-2)}
   .acc .an{flex:1;min-width:0}.acc .an .t{font-size:.88rem;font-weight:650}.acc .an .s{font-size:.7rem;color:var(--ink-3);text-transform:capitalize}
   .acc .av{font-size:.98rem;font-weight:750;text-align:right;white-space:nowrap}.acc .av.neg{color:var(--neg)}
-  .tcard{margin:14px;border-radius:16px;padding:16px;color:#e9f0ec;background:linear-gradient(135deg,#243b34,#16302a)}
-  .tcard.nancy{background:linear-gradient(135deg,#5a2c46,#3d1e30)}.tcard.macro{background:linear-gradient(135deg,#1f3a5a,#132638)}
+  .tcard{margin:14px;border-radius:16px;padding:16px;color:#f2f4f6;background:linear-gradient(135deg,#3a3f45,#22262b);box-shadow:0 10px 24px -14px rgba(0,0,0,.5);position:relative;overflow:hidden}
+  .tcard.santander{background:linear-gradient(135deg,#c81e1e,#7d0f0f)}
+  .tcard.macro{background:linear-gradient(135deg,#b98a2e,#6f5015);color:#fff}
+  .tcard.bbva{background:linear-gradient(135deg,#12385f,#071a30)}
+  .tcard.nancy{background:linear-gradient(135deg,#7a2f52,#3d1e30)}
+  .tcard .bank{font-weight:800;font-size:.95rem;letter-spacing:.02em}
+  .tcard .chip{width:34px;height:24px;border-radius:5px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.5));margin:14px 0 8px;opacity:.9}
   .tcard .tt{display:flex;justify-content:space-between;font-size:.82rem;opacity:.9}
   .tcard .big{font-size:1.5rem;font-weight:780;margin-top:12px}
   .tcard .meta{display:flex;justify-content:space-between;font-size:.7rem;opacity:.82;margin-top:3px}
@@ -145,7 +150,7 @@
     <div class="field"><label>Contraseña</label><input id="pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn" id="btnLogin">Entrar</button>
     <div id="status"></div>
-    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.8</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
+    <div style="text-align:center;font-size:.66rem;color:var(--ink-3);margin-top:16px">Caja · <span class="appver">v0.9</span> — si ves una versión distinta, recargá o volvé a agregar la app a tu pantalla</div>
   </div>
 </div>
 
@@ -155,7 +160,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.8</span>
+        <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.9</span>
         <button id="btnLogout">Salir</button>
       </div>
     </div>
@@ -250,7 +255,7 @@
       </div>
       <button class="save" id="btnAddAcc" style="background:var(--brand)">Agregar cuenta</button>
     </div>
-    <div class="foot">Caja · <span class="appver">v0.8</span> · conectado a tu Supabase</div>
+    <div class="foot">Caja · <span class="appver">v0.9</span> · conectado a tu Supabase</div>
   </div>
 
   <div class="tabbar">
@@ -265,7 +270,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.8';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.9';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -349,7 +354,8 @@ function cardEstimate(card){
   return{vto:nextDay(cy.vto),cuotasMes,cicloAbierto,total:cuotasMes+cicloAbierto};
 }
 function cardsInUse(){const set=[];DATA.movs.forEach(m=>{if(m.tarjeta&&!set.includes(m.tarjeta))set.push(m.tarjeta);});return set;}
-const bankEmoji=c=>/macro/i.test(c)?'macro':/nancy/i.test(c)?'nancy':'';
+const bankClass=c=>/nancy/i.test(c)?'nancy':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
+const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA'};
 
 // ---- render ----
 function renderAll(){renderHeader();renderPay();renderHome();renderTarjetas();renderCuentas();}
@@ -385,10 +391,12 @@ function srcTag(m){const t=m.tarjeta||'';if(/nancy/i.test(t))return `<span class
 
 function renderTarjetas(){const box=$('tcards');const cards=cardsInUse();
   if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste gastos con tarjeta.</div>';return;}
-  box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const cuotas=DATA.movs.filter(m=>m.tarjeta===c&&m.cuota_total&&m.cuota_actual<m.cuota_total).sort((a,b)=>a.cuota_total-b.cuota_total);
-    return `<div class="tcard ${bankEmoji(c)}"><div class="tt"><span>${esc(c)}</span><span>VISA</span></div>
+  box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const cuotas=DATA.movs.filter(m=>m.tarjeta===c&&m.cuota_total&&m.cuota_actual<m.cuota_total).sort((a,b)=>a.cuota_total-b.cuota_total);const acc=CARD_ACCT[c];
+    return `<div class="tcard ${bankClass(c)}"><div class="tt"><span class="bank">${esc(c)}</span><span>VISA</span></div>
+      <div class="chip"></div>
       <div class="big num">${money(e.total)}</div>
       <div class="meta"><span>estimado próximo resumen</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
+      ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
       ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>`<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${m.cuota_actual}/${m.cuota_total}</span><span class="num">${money(m.monto)}</span></div>`).join('')}</div>`:''}
     </div>`;}).join('')+`<div class="foot">El número es un estimado: el resumen real puede sumar intereses, IVA/percepciones y diferencia de cambio.</div>`;
 }

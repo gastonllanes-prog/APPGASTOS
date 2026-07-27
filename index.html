@@ -101,7 +101,9 @@
   .acct{display:flex;align-items:center;gap:12px;padding:11px 20px;border-top:1px solid var(--line-2)}
   .acct .cur{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--ink-2)}.acct .cur.usd{background:var(--blue-wash);color:var(--blue)}
   .acct .an{flex:1;font-size:13.5px;font-weight:500}.acct .av{font-family:var(--mono);font-weight:600}
-  .tcard{background:linear-gradient(135deg,#243b34,#16302a);color:#e9f0ec;border-radius:16px;padding:20px}.tcard.nancy{background:linear-gradient(135deg,#5a2c46,#3d1e30)}
+  .tcard{background:linear-gradient(135deg,#3a3f45,#22262b);color:#f2f4f6;border-radius:16px;padding:20px;box-shadow:0 12px 28px -16px rgba(0,0,0,.5)}
+  .tcard.santander{background:linear-gradient(135deg,#c81e1e,#7d0f0f)}.tcard.macro{background:linear-gradient(135deg,#b98a2e,#6f5015)}.tcard.bbva{background:linear-gradient(135deg,#12385f,#071a30)}.tcard.nancy{background:linear-gradient(135deg,#7a2f52,#3d1e30)}
+  .tcard .cardchip{width:42px;height:30px;border-radius:6px;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(255,255,255,.5));margin:14px 0}
   .tcard .b2{display:flex;justify-content:space-between;font-size:13px;opacity:.85}.tcard .num{font-family:var(--mono);letter-spacing:.12em;margin:20px 0 14px;font-size:15px;opacity:.9}
   .tcard .pay{font-size:11px;opacity:.75}.tcard .paybig{font-family:var(--serif);font-size:1.8rem;font-weight:600}
   .drop{border:1.5px dashed var(--line);border-radius:14px;padding:24px;text-align:center;color:var(--ink-2);background:var(--surface);transition:.15s}
@@ -135,7 +137,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.8</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.9</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -369,10 +371,12 @@ function vCuentas(v){const bal=balances(),P=patr(bal),banks={};DATA.accts.forEac
   <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="ph" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px" onclick="formCuenta()">+ Agregar cuenta</button></div>${html}`;}
 
 // TARJETAS
-function vTarjetas(v){const byCard={};DATA.movs.filter(m=>m.tarjeta).forEach(m=>{byCard[m.tarjeta]=(byCard[m.tarjeta]||0)+ +m.monto;});
-  const cards=Object.entries(byCard).map(([t,total])=>({t,total,banco:bankOf(t),nancy:/nancy/i.test(t)}));
+const bankClassW=c=>/nancy/i.test(c)?'nancy':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
+const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA'};
+function vTarjetas(v){const byCard={};DATA.movs.filter(m=>m.tarjeta).forEach(m=>{byCard[m.tarjeta]=(byCard[m.tarjeta]||0)+cardEstimate(m.tarjeta)*0;});
+  const cards=cardsInUse().map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0)}));
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    ${cards.map(c=>`<div class="tcard ${c.nancy?'nancy':''}"><div class="b2"><span>${esc(c.t)}</span><span>VISA</span></div><div class="num">•••• •••• •••• ••••</div><div class="pay">Total de consumos del período</div><div class="paybig mono">${money(c.total)}</div></div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
+    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="b2"><span style="font-weight:700">${esc(c.t)}</span><span>VISA</span></div><div class="cardchip"></div><div class="pay">Estimado próximo resumen${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div></div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
   <div class="panel mt"><div class="ph"><h3>Subir resumen de tarjeta</h3><span class="meta">PDF o Excel</span></div><div class="pad"><div class="drop"><div style="font-size:1.6rem">📄</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Lo leo, categorizo cada consumo y te digo el total a pagar y los vencimientos.</div><label class="pick">Elegir archivo<input type="file" style="display:none"></label></div><div style="font-size:12px;color:var(--ink-3);margin-top:10px">La lectura automática del PDF corre del lado del servidor (la estamos terminando). Por ahora, pasámelo por el chat y lo cargo.</div></div></div>`;}
 
 // CUOTAS
@@ -428,18 +432,27 @@ function formMov(){_mtipo='gasto';_mamb='personal';
   const cats=(DATA.cats||[]).map(c=>({v:c.id,t:(c.emoji?c.emoji+' ':'')+c.nombre}));
   const accs=[{v:'',t:'(sin cuenta)'}].concat(DATA.accts.map(a=>({v:a.id,t:a.nombre})));
   modal('Cargar movimiento',`
-   <div class="seg2"><button id="mtg" class="on" onclick="_mtipo='gasto';this.classList.add('on');mig.classList.remove('on')">Gasto</button><button id="mig" onclick="_mtipo='ingreso';this.classList.add('on');mtg.classList.remove('on')">Ingreso</button></div>
+   <div class="seg2"><button id="mtg" class="on" onclick="mSetTipo('gasto')">Gasto</button><button id="mig" onclick="mSetTipo('ingreso')">Ingreso</button></div>
    <div class="fld"><label>Monto</label><input id="f_monto" inputmode="decimal" placeholder="0"></div>
-   <div class="fld"><label>Categoría</label><select id="f_cat">${opts(cats)}</select></div>
-   <div class="fld"><label>Cuenta</label><select id="f_cuenta">${opts(accs)}</select></div>
+   <div class="fld" id="fld_cat"><label>Categoría</label><select id="f_cat">${opts(cats)}</select></div>
+   <div class="fld"><label id="lbl_cuenta">Cuenta</label><select id="f_cuenta">${opts(accs)}</select></div>
+   <div class="fld hide" id="fld_fact"><label style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="f_fact" style="width:auto"> Corresponde a una factura (la cargo al IVA)</label><div style="font-size:12px;color:var(--ink-3);margin-top:4px">Si entró a una cuenta del banco, casi siempre es de una factura.</div></div>
    <div class="seg2"><button id="map" class="on" onclick="_mamb='personal';this.classList.add('on');maa.classList.remove('on')">Personal</button><button id="maa" onclick="_mamb='actividad';this.classList.add('on');map.classList.remove('on')">Actividad</button></div>
    <div class="fld"><label>Detalle</label><input id="f_desc" placeholder="opcional"></div>
    <div class="fld"><label>Fecha</label><input id="f_fecha" type="date"></div>
    <button class="save" onclick="saveMov()">Guardar</button>`);
   $('f_fecha').valueAsDate=new Date();}
+function mSetTipo(t){_mtipo=t;$('mtg').classList.toggle('on',t==='gasto');$('mig').classList.toggle('on',t==='ingreso');
+  $('fld_cat').classList.toggle('hide',t==='ingreso');   // el ingreso no pide categoría de gasto
+  $('fld_fact').classList.toggle('hide',t!=='ingreso');  // "¿es de una factura?" solo en ingreso
+  $('lbl_cuenta').textContent=t==='ingreso'?'¿A qué cuenta entró?':'Cuenta';}
 async function saveMov(){const monto=parseFloat(($('f_monto').value||'').replace(/\./g,'').replace(',','.'));if(!monto||monto<=0)return alert('Poné un monto válido.');
-  const row={tipo:_mtipo,monto,ambito:_mamb,categoria_id:$('f_cat').value||null,cuenta_id:$('f_cuenta').value||null,descripcion:$('f_desc').value.trim()||null,fecha:$('f_fecha').value};
-  await insert('movimientos',row,()=>{const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});});closeModal();render();}
+  const esIng=_mtipo==='ingreso';const wantFact=esIng&&$('f_fact')&&$('f_fact').checked;
+  const catId=esIng?((DATA.cats.find(c=>/honorar|venta/i.test(c.nombre))||{}).id||null):($('f_cat').value||null);
+  const row={tipo:_mtipo,monto,ambito:wantFact?'actividad':_mamb,categoria_id:catId,cuenta_id:$('f_cuenta').value||null,descripcion:$('f_desc').value.trim()||null,fecha:$('f_fecha').value};
+  await insert('movimientos',row,()=>{const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});});closeModal();
+  if(wantFact)formFactura({direccion:'venta',tipo:'A',fecha:row.fecha,total:monto,neto:+(monto/1.21).toFixed(2),iva:+(monto-monto/1.21).toFixed(2)});
+  render();}
 function formCuenta(){modal('Agregar cuenta',`
    <div class="fld"><label>Nombre</label><input id="c_nom" placeholder="Ej: Banco Nación · C.A."></div>
    <div class="fld"><label>Tipo</label><select id="c_tipo">${opts([{v:'banco',t:'Banco'},{v:'efectivo',t:'Efectivo'},{v:'tarjeta',t:'Tarjeta'},{v:'inversion',t:'Inversión'}])}</select></div>
