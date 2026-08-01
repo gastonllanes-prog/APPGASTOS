@@ -1,7 +1,33 @@
 # HANDOFF — "Caja" · traspaso completo a Claude Code
 
-Estado a la fecha: **v0.16**, en producción en GitHub Pages, con datos reales en Supabase.
+Estado a la fecha: **v0.19** (deployado sigue en v0.16 — faltan pushear v0.17/18/19). Con datos reales en Supabase.
 Este documento tiene TODO lo necesario para seguir sin contexto previo. Leer junto con `CLAUDE.md`.
+
+### Cambios v0.20
+- **Fechas de ciclo de tarjeta corregidas (CYCLES, los dos archivos).** BBVA estaba mal (decía cierre día 2). Reales confirmados por Gastón: **Visa BBVA / Master BBVA {cierre:30, vto:7}** (paga de BBVA C.A., débito automático), **Visa Macro {cierre:23, vto:3}** (paga de Macro C.A., débito automático). Santander sigue en {2,13} hasta que llegue su resumen.
+- **Config de pago por tarjeta (dicho por Gastón):** Macro→Macro C.A. (auto-débito, vto 03/08) · BBVA→BBVA C.A. (auto-débito, cierre 30/07 vto 07/08) · **Santander = MANUAL y multi-moneda** (paga en $ y US$ por separado, con dólares billete del ahorro + dólares cuenta + pesos cuenta; NO auto-debita).
+- **Percepción USD:** NO es 35% — en el backup figura "Percepción RG 5617 (30%)" ($271.008) → es **30%**. Al pagar los dólares con dólares propios se evita/descuenta. Hacerla **configurable** (cambia seguido en AR).
+- **PENDIENTE — Módulo de pago de tarjetas (a diseñar/construir):** (1) auto-débito que LIMPIE la deuda al pagar (si no, cuenta doble: saldo ya bajó + deuda aún visible entre vto y próximo cierre); (2) Santander multi-moneda + pago manual desde varias fuentes; (3) cálculo de la percepción 30% al pagar en dólares. Falta: resumen Santander + montos $ y US$, y el monto de dólares billete.
+
+### Cambios v0.19
+- **Ocultar saldos (privacidad).** Botón 👁/🙈 en el topbar (web) y header (PWA). `let HIDE` + `money()`/`moneyU()` devuelven `$ ••••` cuando está activo; `toggleHide()` persiste en `localStorage('caja_hide')` y re-renderiza. Estado compartido web↔PWA (mismo origen). Tapa patrimonio, cuentas, disponible, ahorros y los montos de próximos pagos. Leak menor: el subtexto "cuotas $X" en Próximos pagos (PWA) usa toLocaleString directo, no money() → no se tapa (pulir si molesta).
+
+### PENDIENTE / a construir
+- **Cuenta "Dólares billetes" (ahorro USD efectivo):** Gastón la pidió; falta que pase el monto de USD en billete para crearla (tipo=efectivo, moneda=USD, ahorro=true).
+- **Fix "Macro a pagar" (card model):** confirmado en vivo que la app muestra $121.475 (solo cuotas) en vez de $339.439 — Prevención (24/07) y La Meridional (23/07) quedan afuera porque su fecha es < el cierre que usa la app (25/07, CYCLES Macro). Son del resumen cerrado (vto 03/08). Fix rápido = re-fechar esos 2 al ciclo abierto; fix bueno = que cardEstimate tome el resumen cerrado. Gastón todavía no dio OK al rápido.
+
+### Cambios v0.18
+- **Rediseño "¿Cuánto puedo gastar?" (HECHO, aprobado).** Nuevo `ivaMesActual()` (débito−crédito de comprobantes del mes actual). Disponible hoy = `opPesos − deudaTarj − ivaMes`. La **cuota AFIP** (`vencMes`, de `vencProx()`) YA NO se resta: pasa a "aviso del mes que viene" en la nota + `dispTrasVenc`. La tarjeta se sigue restando. En LOS DOS: `health()` cambiado; en `index.html` el `vPanel` (4 celdas: Pesos / −Tarjetas / −IVA / =Disponible hoy + nota). En `app.html` se **agregó fetch de `comprobantes`** en `load()` y `reload()` (+`DATA.comps`) y el sub-texto del header. Verificado en demo web (IVA $184.800) y PWA (sin errores).
+- Nota: el IVA sale de **comprobantes del mes**, no de un vencimiento "IVA DDJJ". Gastón NO carga el IVA como vencimiento (sus vencs son solo las 6 cuotas AFIP), así que está bien. Si algún día carga IVA como vencimiento, revisar (hoy sería un "aviso", no se restaría).
+
+### Cambios v0.17
+- **Gastos: filtro por rango de fechas (web).** La pantalla Gastos ahora tiene Desde/Hasta + chips (Este mes / Mes pasado / Todo), estado propio `gRange` (default = mes actual hasta hoy), ignora el toggle global Mes/Todo. Rótulos corregidos ("Gasto del período", ya no "del mes" cuando estaba en Todo — era engañoso). Verificado.
+- Contexto: Gastón vio "$4.993.427" de gastos y se asustó; era el toggle en "Todo" (mayo $264.773 + junio $3.851.546 + julio $877.108). Junio alto por el resumen de Visa Santander cargado. "Gastos"=consumo por fecha; "Tarjetas a pagar"=lo que debita. Son lentes distintas.
+
+### PENDIENTE aprobado / a construir (próximo)
+- **Rediseño "¿Cuánto puedo gastar?" (APROBADO por Gastón):** restar el **IVA del mes en curso** (débito−crédito de comprobantes del mes actual; él lo paga el 20 del mes siguiente) en lugar de/además de vencimientos; la **cuota AFIP pasa a "aviso del mes que viene"** (no se resta del número de hoy, la cubre con ingresos de agosto); la **tarjeta se sigue restando**. Toca `health()` en LOS DOS archivos + `vPanel` (web) + hay que **agregar fetch de `comprobantes` en app.html** (hoy la PWA no los trae) para calcular IVA. Nuevo helper `ivaMesActual()`.
+- **Lectura de factura por foto:** este ticket de combustible (Petrovalle, Factura A, neto $70.703,65 IVA $14.847,77 total $98.002,01) NO tiene QR y el IVA NO es total/1,21 (hay ITC+carbono). Opciones dadas a Gastón: (1) foto→IA visión en Edge Function (cuesta, lee todo), (2) importar "Mis Comprobantes" de ARCA (exacto, gratis, todas juntas — recomendado para bajar IVA), (3) foto+carga manual. Falta que elija.
+- **Prueba pendiente:** ofrecí cargar esa factura de compra (crédito $14.847,77 → IVA a pagar 962.684→947.836); espera su OK. Ojo: no hay botón para borrar comprobante en la UI.
 
 ### Cambios v0.16
 - **Auto-crear cuenta Efectivo (fix, PWA):** v0.15 se subió SIN este fix. Si cargás en "Efectivo" y no tenés cuenta de efectivo, `ensureEfectivo()` la crea sola. (En v0.15 desplegado había que crearla a mano — por eso ya existe una cuenta "Efectivo" en la base.)
