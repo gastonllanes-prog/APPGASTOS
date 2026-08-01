@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.16</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.20</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -161,7 +161,7 @@
   </aside>
   <main>
     <div class="top"><div><h1 id="vtitle">Panel</h1><div class="sub" id="vsub">—</div></div>
-      <div class="top-r"><div class="periods" id="periods"><button data-p="mes">Mes</button><button class="on" data-p="todo">Todo</button></div>
+      <div class="top-r"><button id="eyeBtn" onclick="toggleHide()" style="border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--ink-2);cursor:pointer">👁 Ocultar</button><div class="periods" id="periods"><button data-p="mes">Mes</button><button class="on" data-p="todo">Todo</button></div>
       <button class="cargar" id="btnCargar">+ Cargar</button></div></div>
     <div class="view" id="view"></div>
     <div class="foot">Caja · panel financiero · datos en vivo de tu Supabase</div>
@@ -225,8 +225,10 @@ const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
 const USD=1528, DEMO=location.hash.includes('demo');
 const $=id=>document.getElementById(id);
-const money=n=>'$ '+Math.round(n).toLocaleString('es-AR');
-const moneyU=n=>'US$ '+Math.round(n).toLocaleString('es-AR');
+let HIDE=false;try{HIDE=localStorage.getItem('caja_hide')==='1';}catch(e){}
+const money=n=>HIDE?'$ ••••':'$ '+Math.round(n).toLocaleString('es-AR');
+const moneyU=n=>HIDE?'US$ ••••':'US$ '+Math.round(n).toLocaleString('es-AR');
+function toggleHide(){HIDE=!HIDE;try{localStorage.setItem('caja_hide',HIDE?'1':'0');}catch(e){}const b=document.getElementById('eyeBtn');if(b)b.textContent=HIDE?'🙈 Mostrar':'👁 Ocultar';if(DATA)render();}
 const CATCOL={'Alimentos/Súper':'var(--s1)','Gastronomía':'var(--s7)','Farmacia':'var(--s2)','Salud/Prepaga':'var(--s5)','Combustible':'var(--s4)','Servicios':'#1e9e8a','Seguros':'#7a8b3f','Hogar':'var(--s6)','Deportes':'#3f57c9','Auto':'#8a6d3b','Ropa':'#c77d3a','Plataformas/Suscrip.':'var(--gold)','Ocio/Entretenim.':'#c0562a','Viajes/Transporte':'var(--s3)','Educación':'var(--plum)','Impuestos':'#b23a3a','Alquiler':'var(--plum)','Otros':'var(--ink-3)'};
 const catColor=c=>CATCOL[c]||'var(--ink-3)';
 let db,session=null,DATA=null,state={scope:'todo',period:'todo',view:'panel'};
@@ -243,7 +245,7 @@ $('btnLogin').onclick=async()=>{const email=$('email').value.trim(),password=$('
   session=r.data.session;await load();};
 ['email','pass'].forEach(id=>{const el=$(id);if(el)el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('btnLogin').click();}});});
 $('btnLogout').onclick=async()=>{await db.auth.signOut();location.reload();};
-function show(){$('loginView').classList.add('hide');$('appView').classList.remove('hide');}
+function show(){$('loginView').classList.add('hide');$('appView').classList.remove('hide');const b=$('eyeBtn');if(b)b.textContent=HIDE?'🙈 Mostrar':'👁 Ocultar';}
 async function load(){show();if(session)$('uEmail').textContent=session.user.email;
   const [a,m,c,ca,v]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
@@ -297,7 +299,7 @@ async function saveSaldo(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;
 const isInv=a=>a.tipo==='inversion';
 const esAhorro=a=>a.ahorro||isInv(a);   // Bull Market siempre; el resto según su marca
 // Ciclos de tarjeta (mismos que la app): para calcular la deuda "hacia adelante"
-const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
+const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 function todayW(){return DEMO?new Date(2026,6,26):new Date();}
 function lastCierreW(day){const t=todayW();let d=new Date(t.getFullYear(),t.getMonth(),day);if(d>t)d=new Date(t.getFullYear(),t.getMonth()-1,day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function cardsInUse(){const s=[];DATA.movs.forEach(m=>{if(m.tarjeta&&!s.includes(m.tarjeta))s.push(m.tarjeta);});return s;}
@@ -316,16 +318,21 @@ function cardEstimate(card){const cy=CYCLES[card]||{cierre:1,vto:10};const cierr
 // no todo el plan, así el "disponible para gastar" no descuenta 6 cuotas de una.
 function vencProx(){const t=todayW();const lim=new Date(t.getFullYear(),t.getMonth()+1,t.getDate());
   return (DATA.vencs||[]).filter(x=>x.estado!=='pagado'&&x.vence&&new Date(x.vence+'T00:00:00')<lim);}
+// IVA del mes en curso (débito − crédito de comprobantes de ESTE mes). Es plata del fisco: se aparta, no se gasta.
+function ivaMesActual(){const t=todayW();const mes=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+  let deb=0,cred=0;(DATA.comps||[]).forEach(c=>{if((c.fecha||'').slice(0,7)!==mes)return;if(c.direccion==='venta')deb+=+c.iva;else cred+=+c.iva;});
+  return Math.max(0,deb-cred);}
 function health(bal){
   let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0;
   DATA.accts.forEach(a=>{const val=bal[a.id]||0;
     if(esAhorro(a)){isUSD(a)?ahoUsd+=val:ahoPesos+=val;}   // ahorro (Bull + efectivo/dólares guardados)
     else{isUSD(a)?opUsd+=val:opPesos+=val;}});             // operativo (lo que podés usar)
-  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c),0);   // hacia adelante, no resúmenes ya pagados
-  const vencPend=vencProx().reduce((s,x)=>s+(+x.monto||0),0);        // solo la cuota del próximo mes, no todo el plan
-  const dispPesos=opPesos-deudaTarj-vencPend;
+  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c),0);   // próximo resumen, hacia adelante
+  const ivaMes=ivaMesActual();                                       // IVA del mes: plata del fisco, no es tuya
+  const vencMes=vencProx().reduce((s,x)=>s+(+x.monto||0),0);         // cuota AFIP del mes que viene (aviso, NO se resta)
+  const dispPesos=opPesos-deudaTarj-ivaMes;                          // hoy = pesos − tarjetas − IVA (la cuota AFIP la cubrís con ingresos del mes que viene)
   const ahoTotal=ahoPesos+ahoUsd*USD;
-  return{opPesos,opUsd,ahoPesos,ahoUsd,ahoTotal,deudaTarj,vencPend,dispPesos,
+  return{opPesos,opUsd,ahoPesos,ahoUsd,ahoTotal,deudaTarj,ivaMes,vencMes,dispPesos,dispTrasVenc:dispPesos-vencMes,
          liqARS:opPesos,usdDisp:opUsd,invARS:ahoTotal};}   // aliases para compBar/nota
 let _patrOpen=null;
 function togglePatr(k){_patrOpen=_patrOpen===k?null:k;
@@ -349,13 +356,13 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <div class="ph"><h3>💰 ¿Cuánto puedo gastar?</h3><span class="meta">plata líquida, sin tocar inversiones</span></div>
     <div class="hgrid">
       <div class="hcell"><div class="hk">Pesos operativos</div><div class="hv mono">${money(H.opPesos)}</div><div class="hs">sin ahorros</div></div>
-      <div class="hcell"><div class="hk">− Tarjetas a pagar</div><div class="hv mono" style="color:var(--neg)">${money(H.deudaTarj)}</div><div class="hs">lo que falta pagar</div></div>
-      <div class="hcell"><div class="hk">− Impuestos por vencer</div><div class="hv mono" style="color:var(--neg)">${H.vencPend?money(H.vencPend):'$ 0'}</div><div class="hs">solo la cuota del próximo mes</div></div>
-      <div class="hcell big ${pos?'good':'bad'}"><div class="hk">${pos?'Te queda para gastar':'Te falta (rojo)'}</div><div class="hv mono">${money(Math.abs(H.dispPesos))}</div><div class="hs">${pos?'en pesos, ya cubiertas las tarjetas':'los pesos no alcanzan a cubrir las tarjetas'}</div></div>
+      <div class="hcell"><div class="hk">− Tarjetas a pagar</div><div class="hv mono" style="color:var(--neg)">${money(H.deudaTarj)}</div><div class="hs">próximo resumen</div></div>
+      <div class="hcell"><div class="hk">− IVA a pagar</div><div class="hv mono" style="color:var(--neg)">${H.ivaMes?money(H.ivaMes):'$ 0'}</div><div class="hs">lo junté para el fisco</div></div>
+      <div class="hcell big ${pos?'good':'bad'}"><div class="hk">${pos?'Disponible para gastar hoy':'Te falta (rojo)'}</div><div class="hv mono">${money(Math.abs(H.dispPesos))}</div><div class="hs">${pos?'ya aparté tarjetas y el IVA':'no alcanza para tarjetas + IVA'}</div></div>
     </div>
     <div class="hnote">${pos
-      ? `Después de pagar las tarjetas y los impuestos, te quedan <b>${money(H.dispPesos)}</b> operativos en pesos. Además tenés <b>${moneyU(H.opUsd)}</b> en dólares operativos y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).`
-      : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir lo que debés de tarjetas + impuestos (<b>${money(H.deudaTarj+H.vencPend)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que tendrías que cubrir con tus dólares (<b>${moneyU(H.opUsd)}</b> ≈ ${money(H.opUsd*USD)}) o tocando tus ahorros. Ojo con esto.`}</div>
+      ? `Podés gastar <b>${money(H.dispPesos)}</b> en pesos (ya aparté tarjetas y el IVA del mes).${H.vencMes?` <b>Aparte, para el mes que viene:</b> la cuota del plan AFIP de <b>${money(H.vencMes)}</b>, que cubrís con tus ingresos del mes que viene — después de pagarla te quedarían <b>${money(H.dispTrasVenc)}</b>.`:''} Además tenés <b>${moneyU(H.opUsd)}</b> en dólares y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).${H.ivaMes?` 🧾 El IVA lo bajás cargando <b>facturas de compra</b> en la pestaña IVA.`:''}`
+      : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir tarjetas + IVA (<b>${money(H.deudaTarj+H.ivaMes)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que cubrirías con dólares (<b>${moneyU(H.opUsd)}</b>) o tocando ahorros.${H.vencMes?` Y ojo: el mes que viene vence la cuota AFIP de <b>${money(H.vencMes)}</b>.`:''}`}</div>
   </div>
 
   <div class="row3">
@@ -374,15 +381,37 @@ function compBar(H,iva){const total=H.liqARS+H.usdDisp*USD+H.invARS||1;
     <div style="font-size:12px;color:var(--ink-3);margin-top:8px">El <b>${Math.round(H.invARS/total*100)}%</b> de tu patrimonio son ahorros (no se tocan). Lo operativo para el día a día es el resto.</div>`;}
 
 // GASTOS
-function vGastos(v){const ms=fmovs(),cats=catAgg(ms),max=cats[0]?cats[0].v:1;
-  const g=ms.filter(m=>m.tipo==='gasto');
-  const cuotasMes=g.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
+// Rango de fechas propio de la pantalla Gastos (para ver "cuánto voy gastando" entre 2 fechas).
+let gRange=null;
+function gMesRange(off){const t=todayW();const d=new Date(t.getFullYear(),t.getMonth()+off,1),y=d.getFullYear(),m=d.getMonth();
+  const p=n=>String(n).padStart(2,'0');const first=`${y}-${p(m+1)}-01`;
+  const hoy=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
+  const last=`${y}-${p(m+1)}-${p(new Date(y,m+1,0).getDate())}`;
+  return {desde:first,hasta:off===0?hoy:last};}
+function gDefaults(){return gMesRange(0);}
+function gQuick(which){gRange=which==='todo'?{desde:'',hasta:''}:which==='prev'?gMesRange(-1):gMesRange(0);render();}
+function gSetFecha(campo,val){if(!gRange)gRange=gDefaults();gRange[campo]=val;render();}
+function vGastos(v){
+  if(!gRange)gRange=gDefaults();
+  let g=DATA.movs.filter(m=>m.tipo==='gasto');
+  if(state.scope!=='todo')g=g.filter(m=>m.ambito===state.scope);
+  if(gRange.desde)g=g.filter(m=>(m.fecha||'')>=gRange.desde);
+  if(gRange.hasta)g=g.filter(m=>(m.fecha||'')<=gRange.hasta);
+  const cats=catAgg(g),max=cats[0]?cats[0].v:1;
+  const cuotasR=g.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
   const unicos=g.filter(m=>!m.cuota_total).reduce((s,m)=>s+ +m.monto,0);
-  v.innerHTML=`<div class="row3" style="margin-bottom:18px">
-    <div class="mini"><div class="k">Gasto del mes (sin cuotas)</div><div class="v">${money(unicos)}</div></div>
-    <div class="mini"><div class="k">Cuotas de este mes</div><div class="v" style="color:var(--plum)">${money(cuotasMes)}</div></div>
-    <div class="mini"><div class="k">Total a pagar</div><div class="v" style="color:var(--neg)">${money(unicos+cuotasMes)}</div></div></div>
-  <div class="panel">${cats.map(c=>catRow(c,max)).join('')||'<div class="empty">Sin gastos en este período. Cargá con "+ Cargar" arriba.</div>'}</div>`;wireCats(v);}
+  const rotulo=(gRange.desde||gRange.hasta)?`${gRange.desde?fdate(gRange.desde):'inicio'} → ${gRange.hasta?fdate(gRange.hasta):'hoy'}`:'todo el historial';
+  const inp='padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--raised);font-size:13px';
+  v.innerHTML=`<div class="panel pad" style="margin-bottom:16px;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+    <div><div style="font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px">Desde</div><input type="date" value="${gRange.desde||''}" onchange="gSetFecha('desde',this.value)" style="${inp}"></div>
+    <div><div style="font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px">Hasta</div><input type="date" value="${gRange.hasta||''}" onchange="gSetFecha('hasta',this.value)" style="${inp}"></div>
+    <div class="chips" style="margin-left:auto"><button class="chip" onclick="gQuick('mes')">Este mes</button><button class="chip" onclick="gQuick('prev')">Mes pasado</button><button class="chip" onclick="gQuick('todo')">Todo</button></div>
+  </div>
+  <div class="row3" style="margin-bottom:18px">
+    <div class="mini"><div class="k">Gasto del período (sin cuotas)</div><div class="v">${money(unicos)}</div><div style="font-size:11px;color:var(--ink-3);margin-top:3px">${rotulo}</div></div>
+    <div class="mini"><div class="k">Cuotas activas en el rango</div><div class="v" style="color:var(--plum)">${money(cuotasR)}</div></div>
+    <div class="mini"><div class="k">Total</div><div class="v" style="color:var(--neg)">${money(unicos+cuotasR)}</div></div></div>
+  <div class="panel">${cats.map(c=>catRow(c,max)).join('')||'<div class="empty">Sin gastos en este rango. Cambiá las fechas o cargá con “+ Cargar”.</div>'}</div>`;wireCats(v);}
 function catRow(c,max){return `<div class="catrow"><button class="catbtn" aria-expanded="false"><span class="em">${c.e}</span><span class="nm">${esc(c.n)}</span><span class="bar"><i style="width:${Math.max(4,c.v/max*100)}%;background:${catColor(c.n)}"></i></span><span class="amt">${money(c.v)}</span><span class="chev">›</span></button><div class="subs hide">${c.items.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(txHtml).join('')}</div></div>`;}
 function txHtml(m){const cc=m.cuota_total?cuotaCur(m):null;const cuo=cc?`<span class="tag cuo">cuota ${cc.actual}/${cc.total}</span>`:'';const rc=m.id?`<button class="recat" title="Cambiar categoría" onclick="formReCat('${m.id}')">⋯</button>`:'';return `<div class="txrow"><span class="d">${fdate(m.fecha)}</span><span class="t">${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||'Gasto')}</span>${cuo}${srcTag(m)}<span class="amt">${money(m.monto)}</span>${rc}</div>`;}
 function formReCat(id){const m=DATA.movs.find(x=>x.id===id);if(!m)return;

@@ -172,6 +172,7 @@
     <div class="h-top">
       <div class="hi">Hola<span id="userEmail">—</span></div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button id="eyeBtn" onclick="toggleHide()" style="background:rgba(255,255,255,.16);border:0;color:#fff;font-size:1rem;padding:5px 10px;border-radius:9px">👁</button>
         <span class="appver" style="background:rgba(255,255,255,.16);font-size:.6rem;font-weight:700;padding:3px 7px;border-radius:6px">v0.13</span>
         <button id="btnLogout">Salir</button>
       </div>
@@ -298,18 +299,20 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.16';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.20';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
-const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:25,vto:6},'Visa BBVA':{cierre:2,vto:13},'Master BBVA':{cierre:2,vto:13},'Amex Santander':{cierre:26,vto:9}};
+const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
 const ACC_EMO={banco:'🏦',efectivo:'💵',tarjeta:'💳',inversion:'📈'};
 
-let db,session=null,DATA={accts:[],movs:[],cats:[],vencs:[]},
+let db,session=null,DATA={accts:[],movs:[],cats:[],vencs:[],comps:[]},
     st={view:'inicio',tipo:'gasto',method:'tarjeta',card:null,cuenta:null,ambito:'personal',catId:null,enCuotas:false,nCuo:3};
 let _accAhorro=false;
 const $=id=>document.getElementById(id);
-const money=n=>'$ '+Math.round(n).toLocaleString('es-AR');
-const moneyU=n=>'US$ '+Math.round(n).toLocaleString('es-AR');
+let HIDE=false;try{HIDE=localStorage.getItem('caja_hide')==='1';}catch(e){}
+const money=n=>HIDE?'$ ••••':'$ '+Math.round(n).toLocaleString('es-AR');
+const moneyU=n=>HIDE?'US$ ••••':'US$ '+Math.round(n).toLocaleString('es-AR');
+function toggleHide(){HIDE=!HIDE;try{localStorage.setItem('caja_hide',HIDE?'1':'0');}catch(e){}const b=document.getElementById('eyeBtn');if(b)b.textContent=HIDE?'🙈':'👁';renderAll();}
 const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
 function banner(m,ok){const b=$('banner');b.textContent=m;b.className=(ok?'ok':'err')+' show';setTimeout(()=>b.className=b.className.replace('show',''),ok?2000:5000);const s=$('status');if(s){s.textContent=m;s.style.color=ok?'var(--pos)':'var(--neg)';}}
 try{db=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
@@ -342,18 +345,20 @@ async function auth(){const email=$('email').value.trim(),password=$('pass').val
 $('btnLogout').onclick=async()=>{if(!DEMO)await db.auth.signOut();location.reload();};
 
 async function load(){
-  const [a,m,c,v]=await Promise.all([
+  const [a,m,c,v,comp]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
     db.from('movimientos').select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).limit(1000),
     db.from('categorias').select('*').order('nombre'),
     db.from('vencimientos').select('*, cuentas(nombre)').order('vence').then(r=>r).catch(()=>({data:[]})),
+    db.from('comprobantes').select('*').limit(1000).then(r=>r).catch(()=>({data:[]})),
   ]);
-  DATA={accts:a.data||[],movs:m.data||[],cats:c.data||[],vencs:(v&&v.data)||[]};
+  DATA={accts:a.data||[],movs:m.data||[],cats:c.data||[],vencs:(v&&v.data)||[],comps:(comp&&comp.data)||[]};
   if(!DATA.cats.length){const rows=DEFAULT_CATS.map(x=>({...x,tipo:'gasto',user_id:session.user.id}));const ins=await db.from('categorias').insert(rows).select();DATA.cats=ins.data||[];}
   enterApp();
 }
 function enterApp(){
   $('loginView').classList.add('hide');$('appView').classList.remove('hide');
+  const eb=$('eyeBtn');if(eb)eb.textContent=HIDE?'🙈':'👁';
   $('userEmail').textContent=session?session.user.email:'demo@caja';
   $('fecha').valueAsDate=today();
   wireCargar();renderChips();renderCards();renderAll();
@@ -370,8 +375,13 @@ function health(){const bal=balances();let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0
   // Deuda de tarjeta = lo que te queda por pagar hacia adelante (cuotas que siguen + consumos del ciclo abierto),
   // NO los resúmenes ya vencidos/pagados. Así coincide con "Próximos pagos".
   const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c).total,0);
-  const vencPend=vencProx().reduce((s,x)=>s+(+x.monto||0),0);   // solo la cuota del próximo mes, no todo el plan
-  return{bal,opPesos,opUsd,ahoPesos,ahoUsd,deudaTarj,vencPend,disp:opPesos-deudaTarj-vencPend};}
+  const ivaMes=ivaMesActual();                                 // IVA del mes: plata del fisco, no es tuya
+  const vencMes=vencProx().reduce((s,x)=>s+(+x.monto||0),0);    // cuota AFIP del mes que viene (aviso, ya aparece en Próximos pagos)
+  return{bal,opPesos,opUsd,ahoPesos,ahoUsd,deudaTarj,ivaMes,vencMes,disp:opPesos-deudaTarj-ivaMes};}
+// IVA del mes en curso (débito − crédito de comprobantes de ESTE mes). Se aparta, no se gasta.
+function ivaMesActual(){const t=today();const mes=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`;
+  let deb=0,cred=0;(DATA.comps||[]).forEach(c=>{if((c.fecha||'').slice(0,7)!==mes)return;if(c.direccion==='venta')deb+=+c.iva;else cred+=+c.iva;});
+  return Math.max(0,deb-cred);}
 // Vencimientos a pagar en el horizonte inmediato (hasta 1 mes adelante). Un plan AFIP son N cuotas
 // con distinta fecha; contamos SOLO la próxima para no descontar todo el plan del "disponible".
 function vencProx(){const t=today();const lim=new Date(t.getFullYear(),t.getMonth()+1,t.getDate());
@@ -412,7 +422,7 @@ const knownCards=()=>[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
 function renderAll(){renderHeader();renderPay();renderHome();renderTarjetas();renderCuentas();}
 function renderHeader(){const H=health();
   $('dispV').textContent=money(H.disp);$('dispV').style.color=H.disp>=0?'#eafff6':'#ffd7d7';
-  $('dispSub').textContent=H.disp>=0?'ya descontadas tarjetas e impuestos':'¡ojo! los pesos no cubren las tarjetas';
+  $('dispSub').textContent=H.disp>=0?(H.vencMes?'aparté tarjetas e IVA · cuota AFIP aparte (mes que viene)':'ya aparté tarjetas y el IVA del mes'):'¡ojo! no alcanza para tarjetas + IVA';
   $('hLiq').textContent=money(H.opPesos);$('hUsd').textContent=moneyU(H.opUsd);
   $('hInv').textContent=money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):'');
 }
@@ -566,11 +576,12 @@ async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
   if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}else{const {error}=await db.from('movimientos').delete().eq('id',id);if(error)return banner('No se pudo borrar: '+error.message);await reload();}
   banner('Borrado',true);renderAll();
 }
-async function reload(){const [a,m,v]=await Promise.all([
+async function reload(){const [a,m,v,comp]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
     db.from('movimientos').select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).limit(1000),
     db.from('vencimientos').select('*, cuentas(nombre)').order('vence').then(r=>r).catch(()=>({data:[]})),
-  ]);DATA.accts=a.data||[];DATA.movs=m.data||[];DATA.vencs=(v&&v.data)||[];}
+    db.from('comprobantes').select('*').limit(1000).then(r=>r).catch(()=>({data:[]})),
+  ]);DATA.accts=a.data||[];DATA.movs=m.data||[];DATA.vencs=(v&&v.data)||[];DATA.comps=(comp&&comp.data)||[];}
 
 function switchView(v){st.view=v;
   ['inicio','cargar','tarjetas','cuentas','resumenes'].forEach(x=>{$('view'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hide',x!==v);
