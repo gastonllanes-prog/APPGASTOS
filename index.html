@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.20</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.21</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -387,7 +387,7 @@ function gMesRange(off){const t=todayW();const d=new Date(t.getFullYear(),t.getM
   const p=n=>String(n).padStart(2,'0');const first=`${y}-${p(m+1)}-01`;
   const hoy=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}`;
   const last=`${y}-${p(m+1)}-${p(new Date(y,m+1,0).getDate())}`;
-  return {desde:first,hasta:off===0?hoy:last};}
+  return {desde:first,hasta:last};}   // mes completo (así no se esconde un gasto fechado más adelante en el mes)
 function gDefaults(){return gMesRange(0);}
 function gQuick(which){gRange=which==='todo'?{desde:'',hasta:''}:which==='prev'?gMesRange(-1):gMesRange(0);render();}
 function gSetFecha(campo,val){if(!gRange)gRange=gDefaults();gRange[campo]=val;render();}
@@ -450,7 +450,7 @@ function vTarjetas(v){
   const cards=list.map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim:CARD_LIMIT[t]}));
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
     ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="ct-top">${logoBadge(CARD_ACCT[c.t]||'')}<img class="netlogo" src="${netLogoW(c.t)}" alt=""></div><div class="ct-name">${esc(c.t)}</div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(c.lim-c.full)}<span style="opacity:.7"> · de ${money(c.lim)}</span></div>`:''}${c.full>c.total+1?`<div class="pay" style="opacity:.75;margin-top:4px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
-  <div class="panel mt"><div class="ph"><h3>Subir resumen de tarjeta</h3><span class="meta">PDF o Excel</span></div><div class="pad"><div class="drop"><div style="font-size:1.6rem">📄</div><b>Arrastrá el resumen acá</b><div style="font-size:12.5px;margin-top:4px">Lo leo, categorizo cada consumo y te digo el total a pagar y los vencimientos.</div><label class="pick">Elegir archivo<input type="file" style="display:none"></label></div><div style="font-size:12px;color:var(--ink-3);margin-top:10px">La lectura automática del PDF corre del lado del servidor (la estamos terminando). Por ahora, pasámelo por el chat y lo cargo.</div></div></div>`;}
+  <div class="panel mt pad" style="color:var(--ink-2);font-size:13px">📎 Para <b>guardar el PDF</b> del resumen (para tu contador) usá la pestaña <b>Resúmenes</b>. Para <b>cargar los consumos</b> al sistema, pasámelo por el chat y los cargo.</div>`;}
 
 // CUOTAS
 function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;});const banks={};cuo.forEach(m=>{const b=bankOf(m.tarjeta);(banks[b]=banks[b]||{}); const t=m.tarjeta;(banks[b][t]=banks[b][t]||[]).push(m);});
@@ -579,7 +579,7 @@ function formMov(){_mtipo='gasto';_mamb='personal';
    <div class="fld"><label>Detalle</label><input id="f_desc" placeholder="opcional"></div>
    <div class="fld"><label>Fecha</label><input id="f_fecha" type="date"></div>
    <button class="save" onclick="saveMov()">Guardar</button>`);
-  $('f_fecha').valueAsDate=new Date();}
+  $('f_fecha').value=new Date().toLocaleDateString('en-CA');}
 function mSetTipo(t){_mtipo=t;$('mtg').classList.toggle('on',t==='gasto');$('mig').classList.toggle('on',t==='ingreso');
   $('fld_cat').classList.toggle('hide',t==='ingreso');   // el ingreso no pide categoría de gasto
   $('fld_fact').classList.toggle('hide',t!=='ingreso');  // "¿es de una factura?" solo en ingreso
@@ -614,7 +614,7 @@ function formFactura(pre){pre=pre||{};_fdir=pre.direccion||'compra';const leido=
    <div class="rowf" style="display:flex;gap:10px"><div class="fld" style="flex:1"><label>Fecha</label><input id="v_fecha" type="date" value="${esc(pre.fecha||'')}"></div><div class="fld" style="flex:1"><label>CAE</label><input id="v_cae" value="${esc(cae)}" placeholder="—"></div></div>
    <input type="hidden" id="v_pv" value="${pre.punto_venta||''}"><input type="hidden" id="v_nro" value="${pre.numero||''}">
    <button class="save" onclick="saveFactura()">${leido?'Confirmar y guardar':'Guardar factura'}</button>`);
-  if(!pre.fecha)$('v_fecha').valueAsDate=new Date();}
+  if(!pre.fecha)$('v_fecha').value=new Date().toLocaleDateString('en-CA');}
 async function saveFactura(){const neto=parseFloat(($('v_neto').value||'0').replace(/\./g,'').replace(',','.'))||0,iva=parseFloat(($('v_iva').value||'0').replace(/\./g,'').replace(',','.'))||0;
   const row={tipo:$('v_tipo').value,razon_social:$('v_rs').value.trim()||null,cuit_emisor:$('v_cuit').value.trim()||null,neto,iva,total:neto+iva,direccion:_fdir,ambito:'actividad',origen:'manual',fecha:$('v_fecha').value,
     cae:$('v_cae').value.trim()||null,punto_venta:parseInt($('v_pv').value)||null,numero:parseInt($('v_nro').value)||null};
