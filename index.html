@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.21</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.22</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -708,7 +708,10 @@ function demo(){const iso=d=>`2026-07-${String(d).padStart(2,'0')}`;
     {concepto:'IVA · DDJJ',cuentas:{nombre:'Santander'},monto:512480,vence:'2026-08-20',estado:'pendiente'},
     {concepto:'Autónomos',cuentas:{nombre:'Macro'},monto:68900,vence:'2026-08-12',estado:'pendiente'}];
   const cats=[C('Alimentos/Súper','🛒'),C('Combustible','⛽')].map((c,i)=>({id:'c'+i,...c}));
-  return {accts,movs,comps,cats,vencs};}
+  const resumenes=[
+    {id:'r1',tarjeta:'Visa Santander',total_ars:2560056.68,total_usd:1640.50,percepcion_ars:736256.40,cierre:'2026-07-30',vto:'2026-08-07',forma_pago:'manual',pagado:false,created_at:'2026-08-01'},
+    {id:'r2',tarjeta:'Visa Macro',total_ars:471937.36,total_usd:0,percepcion_ars:0,cierre:'2026-07-23',vto:'2026-08-03',forma_pago:'auto',pagado:false,created_at:'2026-08-01'}];
+  return {accts,movs,comps,cats,vencs,resumenes};}
 boot();
 </script>
 </body>

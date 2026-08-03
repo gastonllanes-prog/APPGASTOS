@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.21';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.22';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -375,7 +375,7 @@ function health(){const bal=balances();let opPesos=0,opUsd=0,ahoPesos=0,ahoUsd=0
     else{isUSD(a)?opUsd+=v:opPesos+=v;}});
   // Deuda de tarjeta = lo que te queda por pagar hacia adelante (cuotas que siguen + consumos del ciclo abierto),
   // NO los resúmenes ya vencidos/pagados. Así coincide con "Próximos pagos".
-  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c).total,0);
+  const deudaTarj=cardsAll().reduce((s,c)=>s+aPagarPesos(c),0);
   const ivaMes=ivaMesActual();                                 // IVA del mes: plata del fisco, no es tuya
   const vencMes=vencProx().reduce((s,x)=>s+(+x.monto||0),0);    // cuota AFIP del mes que viene (aviso, ya aparece en Próximos pagos)
   return{bal,opPesos,opUsd,ahoPesos,ahoUsd,deudaTarj,ivaMes,vencMes,disp:opPesos-deudaTarj-ivaMes};}
@@ -452,19 +452,28 @@ function txHtml(m){const cat=m.categorias||{};const isIng=m.tipo==='ingreso';con
 function srcTag(m){const t=m.tarjeta||'';if(/nancy/i.test(t))return `<span class="tagx nancy">${esc(t)}</span>`;if(t)return `<span class="tagx card">${esc(t)}</span>`;
   const a=DATA.accts.find(x=>x.id===m.cuenta_id);return a?`<span class="tagx">${esc(a.nombre.split('·')[0].trim())}</span>`:'';}
 
-function renderTarjetas(){const box=$('tcards');const cards=knownCards();
-  if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste gastos con tarjeta.</div>';return;}
-  box.innerHTML=cards.map(c=>{const e=cardEstimate(c);const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const cuotas=DATA.movs.filter(m=>{if(m.tarjeta!==c)return false;const cc=cuotaCur(m);return cc&&cc.activa;}).sort((a,b)=>a.cuota_total-b.cuota_total);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const disp=lim!=null?lim-raw:null;
-    return `<div class="tcard ${bankClass(c)}">
-      <div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div>
-      <div class="ct-name">${esc(c)}</div>
-      <div class="big num" style="margin-top:4px">${money(e.total)}</div>
-      <div class="meta"><span>a pagar (próximo resumen)</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
-      ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
-      ${disp!=null?`<div class="meta" style="margin-top:2px;font-weight:700;opacity:.95"><span>disponible para gastar</span><span>${money(disp)}</span></div>`:''}
-      ${raw>e.total+1?`<div class="meta" style="margin-top:2px;opacity:.75"><span>último resumen cargado</span><span>${money(raw)}</span></div>`:''}
+function resumenActivo(t){return (DATA.resumenes||[]).filter(r=>r.tarjeta===t&&!r.pagado).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))[0];}
+function cardsAll(){return [...new Set([...cardsInUse(),...(DATA.resumenes||[]).filter(r=>!r.pagado).map(r=>r.tarjeta)])];}
+function aPagarPesos(t){const R=resumenActivo(t);if(R)return Math.max(0,(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0));return cardEstimate(t).total;}
+function renderTarjetas(){const box=$('tcards');const cards=[...new Set([...knownCards(),...(DATA.resumenes||[]).map(r=>r.tarjeta)])];
+  if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste tarjetas.</div>';return;}
+  box.innerHTML=cards.map(c=>{const R=resumenActivo(c);const e=cardEstimate(c);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const disp=lim!=null?lim-raw:null;
+    const cuotas=DATA.movs.filter(m=>{if(m.tarjeta!==c)return false;const cc=cuotaCur(m);return cc&&cc.activa;}).sort((a,b)=>a.cuota_total-b.cuota_total);
+    let head;
+    if(R){const neto=(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0);
+      head=`<div class="big num" style="margin-top:4px">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
+        <div class="meta"><span>a pagar${R.forma_pago==='manual'?' · manual':' · déb. autom.'}</span><span>vence ${R.vto?fdate(R.vto):'—'}</span></div>
+        ${acc?`<div class="meta" style="margin-top:2px"><span>de ${esc(acc)}</span><span></span></div>`:''}
+        ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="meta" style="margin-top:4px;font-weight:700"><span>US$ en dólares</span><span>${money(neto)}</span></div><div class="meta" style="opacity:.8"><span>ahorrás percepción</span><span>${money(R.percepcion_ars)}</span></div>`:''}`;
+    }else{
+      head=`<div class="big num" style="margin-top:4px">${money(e.total)}</div>
+        <div class="meta"><span>a pagar (estimado)</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
+        ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
+        ${disp!=null?`<div class="meta" style="margin-top:2px;font-weight:700;opacity:.95"><span>disponible para gastar</span><span>${money(disp)}</span></div>`:''}`;
+    }
+    return `<div class="tcard ${bankClass(c)}"><div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div><div class="ct-name">${esc(c)}</div>${head}
       ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>{const cc=cuotaCur(m);return `<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${cc.actual}/${cc.total}</span><span class="num">${money(m.monto)}</span></div>`;}).join('')}</div>`:''}
-    </div>`;}).join('')+`<div class="foot">"Disponible" = límite de compra − usado (donde tengo el límite del resumen). "A pagar" = próximo resumen; "último resumen" = el que ya cerró.</div>`;
+    </div>`;}).join('')+`<div class="foot">El resumen a pagar (con las 2 monedas y la percepción) se carga desde la web; acá lo ves.</div>`;
 }
 function renderCuentas(){const box=$('accList');
   if(!DATA.accts.length){box.innerHTML='<div class="empty"><span class="e">🏦</span>Agregá tu primera cuenta abajo.</div>';return;}
@@ -653,7 +662,10 @@ function demo(){
     {id:'i1',fecha:'2026-07-18',tipo:'ingreso',monto:2844634,ambito:'actividad',categorias:C('Honorarios','💼'),descripcion:'Factura FG Conexiones',cuenta_id:'a5'},
   ];
   const vencs=[{concepto:'Plan Ganancias (AFIP)',cuentas:{nombre:'BBVA'},monto:84500,vence:'2026-08-16',estado:'pendiente'},{concepto:'IVA · DDJJ',cuentas:{nombre:'Santander'},monto:512480,vence:'2026-08-20',estado:'pendiente'}];
-  return {accts,movs,cats,vencs};
+  const resumenes=[
+    {id:'r1',tarjeta:'Visa Santander',total_ars:2560056.68,total_usd:1640.50,percepcion_ars:736256.40,cierre:'2026-07-30',vto:'2026-08-07',forma_pago:'manual',pagado:false,created_at:'2026-08-01'},
+    {id:'r2',tarjeta:'Visa Macro',total_ars:471937.36,total_usd:0,percepcion_ars:0,cierre:'2026-07-23',vto:'2026-08-03',forma_pago:'auto',pagado:false,created_at:'2026-08-01'}];
+  return {accts,movs,cats,vencs,resumenes};
 }
 document.querySelectorAll('.appver').forEach(e=>e.textContent=VERSION);
 boot();
