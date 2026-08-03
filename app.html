@@ -345,14 +345,15 @@ async function auth(){const email=$('email').value.trim(),password=$('pass').val
 $('btnLogout').onclick=async()=>{if(!DEMO)await db.auth.signOut();location.reload();};
 
 async function load(){
-  const [a,m,c,v,comp]=await Promise.all([
+  const [a,m,c,v,comp,rt]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
     db.from('movimientos').select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).limit(1000),
     db.from('categorias').select('*').order('nombre'),
     db.from('vencimientos').select('*, cuentas(nombre)').order('vence').then(r=>r).catch(()=>({data:[]})),
     db.from('comprobantes').select('*').limit(1000).then(r=>r).catch(()=>({data:[]})),
+    db.from('resumen_tarjeta').select('*').then(r=>r).catch(()=>({data:[]})),
   ]);
-  DATA={accts:a.data||[],movs:m.data||[],cats:c.data||[],vencs:(v&&v.data)||[],comps:(comp&&comp.data)||[]};
+  DATA={accts:a.data||[],movs:m.data||[],cats:c.data||[],vencs:(v&&v.data)||[],comps:(comp&&comp.data)||[],resumenes:(rt&&rt.data)||[]};
   if(!DATA.cats.length){const rows=DEFAULT_CATS.map(x=>({...x,tipo:'gasto',user_id:session.user.id}));const ins=await db.from('categorias').insert(rows).select();DATA.cats=ins.data||[];}
   enterApp();
 }

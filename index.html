@@ -247,14 +247,15 @@ $('btnLogin').onclick=async()=>{const email=$('email').value.trim(),password=$('
 $('btnLogout').onclick=async()=>{await db.auth.signOut();location.reload();};
 function show(){$('loginView').classList.add('hide');$('appView').classList.remove('hide');const b=$('eyeBtn');if(b)b.textContent=HIDE?'🙈 Mostrar':'👁 Ocultar';}
 async function load(){show();if(session)$('uEmail').textContent=session.user.email;
-  const [a,m,c,ca,v]=await Promise.all([
+  const [a,m,c,ca,v,rt]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
     db.from('movimientos').select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).limit(2000),
     db.from('comprobantes').select('*').limit(1000),
     db.from('categorias').select('*'),
     db.from('vencimientos').select('*, cuentas(nombre)').order('vence').then(r=>r).catch(()=>({data:[]})),
+    db.from('resumen_tarjeta').select('*').then(r=>r).catch(()=>({data:[]})),
   ]);
-  DATA={accts:a.data||[],movs:m.data||[],comps:c.data||[],cats:ca.data||[],vencs:(v&&v.data)||[]};
+  DATA={accts:a.data||[],movs:m.data||[],comps:c.data||[],cats:ca.data||[],vencs:(v&&v.data)||[],resumenes:(rt&&rt.data)||[]};
   render();}
 $('nav').addEventListener('click',e=>{const b=e.target.closest('.nav-i');if(!b)return;state.view=b.dataset.v;[...$('nav').children].forEach(x=>x.classList.toggle('on',x===b));render();});
 $('scope').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.scope=b.dataset.s;[...$('scope').children].forEach(x=>x.classList.toggle('on',x===b));render();});
@@ -327,7 +328,7 @@ function health(bal){
   DATA.accts.forEach(a=>{const val=bal[a.id]||0;
     if(esAhorro(a)){isUSD(a)?ahoUsd+=val:ahoPesos+=val;}   // ahorro (Bull + efectivo/dólares guardados)
     else{isUSD(a)?opUsd+=val:opPesos+=val;}});             // operativo (lo que podés usar)
-  const deudaTarj=cardsInUse().reduce((s,c)=>s+cardEstimate(c),0);   // próximo resumen, hacia adelante
+  const deudaTarj=cardsAll().reduce((s,c)=>s+aPagarPesos(c),0);   // resumen a pagar si existe, si no el estimado
   const ivaMes=ivaMesActual();                                       // IVA del mes: plata del fisco, no es tuya
   const vencMes=vencProx().reduce((s,x)=>s+(+x.monto||0),0);         // cuota AFIP del mes que viene (aviso, NO se resta)
   const dispPesos=opPesos-deudaTarj-ivaMes;                          // hoy = pesos − tarjetas − IVA (la cuota AFIP la cubrís con ingresos del mes que viene)
@@ -445,12 +446,52 @@ function vCuentas(v){const bal=balances(),H=health(bal),banks={};DATA.accts.forE
 const bankClassW=c=>/nancy/i.test(c)?'nancy':/amex/i.test(c)?'amex':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
 const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA'};
 const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};
+// Resumen a pagar de una tarjeta (el activo = no pagado, más reciente)
+function resumenActivo(t){return (DATA.resumenes||[]).filter(r=>r.tarjeta===t&&!r.pagado).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))[0];}
+function cardsAll(){return [...new Set([...cardsInUse(),...(DATA.resumenes||[]).filter(r=>!r.pagado).map(r=>r.tarjeta)])];}
+// Cuánto pesa en PESOS a pagar (si hay resumen manual pagando USD en dólares, la percepción no cuenta)
+function aPagarPesos(t){const R=resumenActivo(t);if(R)return Math.max(0,(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0));return cardEstimate(t);}
 function vTarjetas(v){
-  const list=[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
-  const cards=list.map(t=>({t,total:cardEstimate(t),full:DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim:CARD_LIMIT[t]}));
+  const list=[...new Set([...Object.keys(CYCLES),...cardsInUse(),...(DATA.resumenes||[]).map(r=>r.tarjeta)])];
+  const btn='margin-top:10px;background:rgba(255,255,255,.2);border:0;color:#fff;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer';
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    ${cards.map(c=>`<div class="tcard ${bankClassW(c.t)}"><div class="ct-top">${logoBadge(CARD_ACCT[c.t]||'')}<img class="netlogo" src="${netLogoW(c.t)}" alt=""></div><div class="ct-name">${esc(c.t)}</div><div class="pay">A pagar (próximo resumen)${CARD_ACCT[c.t]?' · se debita de '+esc(CARD_ACCT[c.t]):''}</div><div class="paybig mono">${money(c.total)}</div>${c.lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(c.lim-c.full)}<span style="opacity:.7"> · de ${money(c.lim)}</span></div>`:''}${c.full>c.total+1?`<div class="pay" style="opacity:.75;margin-top:4px">Último resumen cargado: ${money(c.full)}</div>`:''}</div>`).join('')||'<div class="empty">Cargá los consumos de tarjeta para ver los totales.</div>'}</div>
-  <div class="panel mt pad" style="color:var(--ink-2);font-size:13px">📎 Para <b>guardar el PDF</b> del resumen (para tu contador) usá la pestaña <b>Resúmenes</b>. Para <b>cargar los consumos</b> al sistema, pasámelo por el chat y los cargo.</div>`;}
+    ${list.map(t=>{const R=resumenActivo(t),est=cardEstimate(t),full=DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim=CARD_LIMIT[t],acc=CARD_ACCT[t]||'';
+      let body;
+      if(R){const neto=(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0);
+        body=`<div class="pay">A pagar${R.forma_pago==='manual'?' · pago manual':' · débito automático'}${acc?' de '+esc(acc):''}</div>
+          <div class="paybig mono">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
+          <div class="pay" style="margin-top:2px">vence ${R.vto?fdateLong(R.vto):'—'}</div>
+          ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">💵 Pagando los US$ en dólares: <b>${money(neto)}</b><div style="opacity:.8;font-weight:400">ahorrás ${money(R.percepcion_ars)} de percepción</div></div>`:''}
+          <button onclick="formResumen('${esc(t)}','${R.id}')" style="${btn}">✎ editar resumen</button>`;
+      }else{
+        body=`<div class="pay">A pagar (estimado)${acc?' · se debita de '+esc(acc):''}</div>
+          <div class="paybig mono">${money(est)}</div>
+          ${lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(lim-full)}<span style="opacity:.7"> · de ${money(lim)}</span></div>`:''}
+          <button onclick="formResumen('${esc(t)}','')" style="${btn}">+ Cargar resumen a pagar</button>`;
+      }
+      return `<div class="tcard ${bankClassW(t)}"><div class="ct-top">${logoBadge(acc)}<img class="netlogo" src="${netLogoW(t)}" alt=""></div><div class="ct-name">${esc(t)}</div>${body}</div>`;
+    }).join('')||'<div class="empty">Sin tarjetas.</div>'}</div>
+  <div class="panel mt pad" style="color:var(--ink-2);font-size:13px">💳 Cargá el <b>resumen a pagar</b> de cada tarjeta (total en $ y US$, percepción, vencimiento). En las que pagás los dólares con dólares, te calcula el ahorro de la percepción. El <b>PDF</b> para el contador se guarda en <b>Resúmenes</b>.</div>`;}
+let _rforma='auto';
+function formResumen(tarjeta,id){const r=id?((DATA.resumenes||[]).find(x=>x.id===id)||{}):{};_rforma=r.forma_pago||'auto';
+  const accs=[{v:'',t:'(elegí cuenta)'}].concat(DATA.accts.map(a=>({v:a.id,t:a.nombre})));
+  modal('Resumen a pagar · '+esc(tarjeta),`
+   <div class="fld"><label>Total a pagar en pesos</label><input id="r_ars" inputmode="decimal" value="${r.total_ars?nAR(r.total_ars):''}"></div>
+   <div class="fld"><label>Total a pagar en dólares (US$)</label><input id="r_usd" inputmode="decimal" value="${r.total_usd?nAR(r.total_usd):''}"></div>
+   <div class="fld"><label>Percepción 30% en pesos</label><input id="r_perc" inputmode="decimal" value="${r.percepcion_ars?nAR(r.percepcion_ars):''}"><div style="font-size:12px;color:var(--ink-3);margin-top:4px">Si pagás los US$ con dólares propios, esto NO se paga.</div></div>
+   <div class="rowf" style="display:flex;gap:10px"><div class="fld" style="flex:1"><label>Cierre</label><input id="r_cierre" type="date" value="${esc(r.cierre||'')}"></div><div class="fld" style="flex:1"><label>Vence</label><input id="r_vto" type="date" value="${esc(r.vto||'')}"></div></div>
+   <div class="fld"><label>Se paga de</label><select id="r_cta">${opts(accs,r.cuenta_id)}</select></div>
+   <div class="seg2"><button type="button" id="rfa" class="${_rforma==='auto'?'on':''}" onclick="_rforma='auto';rfa.classList.add('on');rfm.classList.remove('on')">Débito automático</button><button type="button" id="rfm" class="${_rforma==='manual'?'on':''}" onclick="_rforma='manual';rfm.classList.add('on');rfa.classList.remove('on')">Pago manual</button></div>
+   <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px"><input type="checkbox" id="r_pag" ${r.pagado?'checked':''} style="width:auto"> Ya está pagado (sacarlo de "a pagar")</label>
+   ${id?`<button onclick="delResumen('${id}')" style="width:100%;margin-bottom:8px;padding:11px;border:0;border-radius:11px;background:#f6e3e3;color:var(--neg);font-weight:600">Borrar este resumen</button>`:''}
+   <button class="save" onclick="saveResumen('${esc(tarjeta)}','${id||''}')">Guardar</button>`);}
+async function saveResumen(tarjeta,id){const num=v=>parseFloat((v||'').replace(/\./g,'').replace(',','.'))||0;
+  const row={tarjeta,total_ars:num($('r_ars').value),total_usd:num($('r_usd').value),percepcion_ars:num($('r_perc').value),cierre:$('r_cierre').value||null,vto:$('r_vto').value||null,cuenta_id:$('r_cta').value||null,forma_pago:_rforma,pagado:$('r_pag').checked};
+  if(!DEMO&&session){const q=id?db.from('resumen_tarjeta').update(row).eq('id',id):db.from('resumen_tarjeta').insert({...row,user_id:session.user.id});const {error}=await q;if(error){alert('No se pudo: '+error.message);return;}await load();closeModal();return;}
+  if(id){const x=DATA.resumenes.find(y=>y.id===id);if(x)Object.assign(x,row);}else{DATA.resumenes.push({...row,id:'tmp'+Date.now(),created_at:new Date().toISOString()});}closeModal();render();}
+async function delResumen(id){if(!confirm('¿Borrar este resumen a pagar?'))return;
+  if(!DEMO&&session){const {error}=await db.from('resumen_tarjeta').delete().eq('id',id);if(error){alert('No se pudo: '+error.message);return;}await load();closeModal();return;}
+  DATA.resumenes=(DATA.resumenes||[]).filter(x=>x.id!==id);closeModal();render();}
 
 // CUOTAS
 function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;});const banks={};cuo.forEach(m=>{const b=bankOf(m.tarjeta);(banks[b]=banks[b]||{}); const t=m.tarjeta;(banks[b][t]=banks[b][t]||[]).push(m);});
