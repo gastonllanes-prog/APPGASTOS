@@ -361,9 +361,11 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
       <div class="hcell"><div class="hk">− IVA a pagar</div><div class="hv mono" style="color:var(--neg)">${H.ivaMes?money(H.ivaMes):'$ 0'}</div><div class="hs">lo junté para el fisco</div></div>
       <div class="hcell big ${pos?'good':'bad'}"><div class="hk">${pos?'Disponible para gastar hoy':'Te falta (rojo)'}</div><div class="hv mono">${money(Math.abs(H.dispPesos))}</div><div class="hs">${pos?'ya aparté tarjetas y el IVA':'no alcanza para tarjetas + IVA'}</div></div>
     </div>
-    <div class="hnote">${pos
-      ? `Podés gastar <b>${money(H.dispPesos)}</b> en pesos (ya aparté tarjetas y el IVA del mes).${H.vencMes?` <b>Aparte, para el mes que viene:</b> la cuota del plan AFIP de <b>${money(H.vencMes)}</b>, que cubrís con tus ingresos del mes que viene — después de pagarla te quedarían <b>${money(H.dispTrasVenc)}</b>.`:''} Además tenés <b>${moneyU(H.opUsd)}</b> en dólares y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).${H.ivaMes?` 🧾 El IVA lo bajás cargando <b>facturas de compra</b> en la pestaña IVA.`:''}`
-      : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir tarjetas + IVA (<b>${money(H.deudaTarj+H.ivaMes)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que cubrirías con dólares (<b>${moneyU(H.opUsd)}</b>) o tocando ahorros.${H.vencMes?` Y ojo: el mes que viene vence la cuota AFIP de <b>${money(H.vencMes)}</b>.`:''}`}</div>
+    <div class="hnote">${(()=>{const cuoMens=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
+      const comprometido=(cuoMens||H.vencMes)?` <b>📅 Ya comprometido para el mes que viene:</b>${cuoMens?` cuotas de tarjeta <b>${money(cuoMens)}</b> (van al próximo resumen)`:''}${cuoMens&&H.vencMes?' +':''}${H.vencMes?` cuota AFIP <b>${money(H.vencMes)}</b>`:''}${cuoMens||H.vencMes?` — lo cubrís con los ingresos del mes que viene.`:''}`:'';
+      return pos
+      ? `Podés gastar <b>${money(H.dispPesos)}</b> en pesos (ya aparté tarjetas y el IVA del mes).${comprometido} Además tenés <b>${moneyU(H.opUsd)}</b> en dólares y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).${H.ivaMes?` 🧾 El IVA lo bajás cargando <b>facturas de compra</b> en la pestaña IVA.`:''}`
+      : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir tarjetas + IVA (<b>${money(H.deudaTarj+H.ivaMes)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que cubrirías con dólares (<b>${moneyU(H.opUsd)}</b>) o tocando ahorros.${comprometido}`;})()}</div>
   </div>
 
   <div class="row3">
