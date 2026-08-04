@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.22</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.23</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -462,7 +462,8 @@ function vTarjetas(v){
           <div class="paybig mono">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
           <div class="pay" style="margin-top:2px">vence ${R.vto?fdateLong(R.vto):'—'}</div>
           ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">💵 Pagando los US$ en dólares: <b>${money(neto)}</b><div style="opacity:.8;font-weight:400">ahorrás ${money(R.percepcion_ars)} de percepción</div></div>`:''}
-          <button onclick="formResumen('${esc(t)}','${R.id}')" style="${btn}">✎ editar resumen</button>`;
+          <button onclick="marcarPagada('${R.id}')" style="${btn};background:rgba(255,255,255,.92);color:#166534">✓ Marcar pagada</button>
+          <button onclick="formResumen('${esc(t)}','${R.id}')" style="${btn}">✎ editar</button>`;
       }else{
         body=`<div class="pay">A pagar (estimado)${acc?' · se debita de '+esc(acc):''}</div>
           <div class="paybig mono">${money(est)}</div>
@@ -492,6 +493,10 @@ async function saveResumen(tarjeta,id){const num=v=>parseFloat((v||'').replace(/
 async function delResumen(id){if(!confirm('¿Borrar este resumen a pagar?'))return;
   if(!DEMO&&session){const {error}=await db.from('resumen_tarjeta').delete().eq('id',id);if(error){alert('No se pudo: '+error.message);return;}await load();closeModal();return;}
   DATA.resumenes=(DATA.resumenes||[]).filter(x=>x.id!==id);closeModal();render();}
+async function marcarPagada(id){const r=(DATA.resumenes||[]).find(x=>x.id===id);if(!r)return;
+  if(!confirm('¿Marcar '+r.tarjeta+' como pagada?\n\nAcordate: si ya se debitó de la cuenta, ajustá el saldo con ✎ en Cuentas.'))return;
+  if(!DEMO&&session){const {error}=await db.from('resumen_tarjeta').update({pagado:true}).eq('id',id);if(error){alert('No se pudo: '+error.message);return;}await load();return;}
+  r.pagado=true;render();}
 
 // CUOTAS
 function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;});const banks={};cuo.forEach(m=>{const b=bankOf(m.tarjeta);(banks[b]=banks[b]||{}); const t=m.tarjeta;(banks[b][t]=banks[b][t]||[]).push(m);});
@@ -507,11 +512,19 @@ function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&
       <tr class="total"><td colspan="3">Total ${esc(card)}</td><td class="n">${money(totCard)}</td></tr></tbody></table>`;});
     html+=`</div>`;});
   const mensual=cuo.reduce((s,m)=>s+ +m.monto,0);
+  // Planes de pago en cuotas que NO son de tarjeta (AFIP, contador, etc.) — viven en vencimientos
+  const planes=(DATA.vencs||[]).filter(x=>x.cuota_total&&x.estado!=='pagado').sort((a,b)=>(a.vence||'').localeCompare(b.vence||''));
+  const planTot=planes.reduce((s,x)=>s+(+x.monto||0),0);
+  const planHtml=planes.length?`<div class="panel bankgrp"><div class="bankhd"><div class="bn">🏛️ Planes de pago (AFIP, contador…)</div><div class="bt">${money(planTot)} en total</div></div>
+    <table><thead><tr><th>Concepto</th><th>Cuota</th><th>Vence</th><th style="text-align:right">Monto</th></tr></thead><tbody>
+    ${planes.map(x=>`<tr><td>${esc(x.concepto)}</td><td>${x.cuota_actual} de ${x.cuota_total}</td><td>${fdateLong(x.vence)}</td><td class="n">${money(x.monto)}</td></tr>`).join('')}
+    </tbody></table></div>`:'';
   v.innerHTML=`<div class="row3" style="margin-bottom:18px">
-    <div class="mini"><div class="k">Cuotas activas</div><div class="v">${cuo.length}</div></div>
-    <div class="mini"><div class="k">Total mensual (pagás por mes)</div><div class="v" style="color:var(--plum)">${money(mensual)}</div></div>
-    <div class="mini"><div class="k">Total que te queda por pagar</div><div class="v" style="color:var(--neg)">${money(grand)}</div></div></div>
-  ${html||'<div class="empty">Sin cuotas cargadas. Cargá los consumos de tarjeta y las cuotas aparecen acá agrupadas por banco.</div>'}`;}
+    <div class="mini"><div class="k">Cuotas de tarjeta activas</div><div class="v">${cuo.length}</div></div>
+    <div class="mini"><div class="k">Tarjetas: pagás por mes</div><div class="v" style="color:var(--plum)">${money(mensual)}</div></div>
+    <div class="mini"><div class="k">Restante tarjetas + planes</div><div class="v" style="color:var(--neg)">${money(grand+planTot)}</div></div></div>
+  ${html||'<div class="empty">Sin cuotas de tarjeta activas.</div>'}
+  ${planHtml}`;}
 
 // IVA
 function ivaPos(){let deb=0,cred=0;DATA.comps.forEach(c=>{if(c.direccion==='venta')deb+=+c.iva;else cred+=+c.iva;});return{deb,cred,saldo:deb-cred};}

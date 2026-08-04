@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.22';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.23';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -464,7 +464,8 @@ function renderTarjetas(){const box=$('tcards');const cards=[...new Set([...know
       head=`<div class="big num" style="margin-top:4px">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
         <div class="meta"><span>a pagar${R.forma_pago==='manual'?' · manual':' · déb. autom.'}</span><span>vence ${R.vto?fdate(R.vto):'—'}</span></div>
         ${acc?`<div class="meta" style="margin-top:2px"><span>de ${esc(acc)}</span><span></span></div>`:''}
-        ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="meta" style="margin-top:4px;font-weight:700"><span>US$ en dólares</span><span>${money(neto)}</span></div><div class="meta" style="opacity:.8"><span>ahorrás percepción</span><span>${money(R.percepcion_ars)}</span></div>`:''}`;
+        ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="meta" style="margin-top:4px;font-weight:700"><span>US$ en dólares</span><span>${money(neto)}</span></div><div class="meta" style="opacity:.8"><span>ahorrás percepción</span><span>${money(R.percepcion_ars)}</span></div>`:''}
+        <button class="tog" data-pagar="${R.id}" style="margin-top:10px;padding:6px 12px;font-size:.72rem;background:rgba(255,255,255,.9);color:#166534">✓ Marcar pagada</button>`;
     }else{
       head=`<div class="big num" style="margin-top:4px">${money(e.total)}</div>
         <div class="meta"><span>a pagar (estimado)</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
@@ -473,8 +474,14 @@ function renderTarjetas(){const box=$('tcards');const cards=[...new Set([...know
     }
     return `<div class="tcard ${bankClass(c)}"><div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div><div class="ct-name">${esc(c)}</div>${head}
       ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>{const cc=cuotaCur(m);return `<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${cc.actual}/${cc.total}</span><span class="num">${money(m.monto)}</span></div>`;}).join('')}</div>`:''}
-    </div>`;}).join('')+`<div class="foot">El resumen a pagar (con las 2 monedas y la percepción) se carga desde la web; acá lo ves.</div>`;
+    </div>`;}).join('')+`<div class="foot">El resumen a pagar (con las 2 monedas y la percepción) se carga desde la web; acá lo ves y lo marcás pagado.</div>`;
+  box.querySelectorAll('[data-pagar]').forEach(b=>b.onclick=()=>marcarPagada(b.dataset.pagar));
 }
+async function marcarPagada(id){const r=(DATA.resumenes||[]).find(x=>x.id===id);if(!r)return;
+  if(!confirm('¿Marcar '+r.tarjeta+' como pagada?\n\nSi ya se debitó de la cuenta, ajustá el saldo con ✎ en Cuentas.'))return;
+  if(!DEMO&&session){const {error}=await db.from('resumen_tarjeta').update({pagado:true}).eq('id',id);if(error){banner('No se pudo: '+error.message);return;}await reload();}
+  else r.pagado=true;
+  banner('Tarjeta marcada como pagada ✓',true);renderAll();}
 function renderCuentas(){const box=$('accList');
   if(!DATA.accts.length){box.innerHTML='<div class="empty"><span class="e">🏦</span>Agregá tu primera cuenta abajo.</div>';return;}
   box.innerHTML=acctCards();
@@ -586,12 +593,13 @@ async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
   if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}else{const {error}=await db.from('movimientos').delete().eq('id',id);if(error)return banner('No se pudo borrar: '+error.message);await reload();}
   banner('Borrado',true);renderAll();
 }
-async function reload(){const [a,m,v,comp]=await Promise.all([
+async function reload(){const [a,m,v,comp,rt]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
     db.from('movimientos').select('*, categorias(nombre,emoji)').order('fecha',{ascending:false}).limit(1000),
     db.from('vencimientos').select('*, cuentas(nombre)').order('vence').then(r=>r).catch(()=>({data:[]})),
     db.from('comprobantes').select('*').limit(1000).then(r=>r).catch(()=>({data:[]})),
-  ]);DATA.accts=a.data||[];DATA.movs=m.data||[];DATA.vencs=(v&&v.data)||[];DATA.comps=(comp&&comp.data)||[];}
+    db.from('resumen_tarjeta').select('*').then(r=>r).catch(()=>({data:[]})),
+  ]);DATA.accts=a.data||[];DATA.movs=m.data||[];DATA.vencs=(v&&v.data)||[];DATA.comps=(comp&&comp.data)||[];DATA.resumenes=(rt&&rt.data)||[];}
 
 function switchView(v){st.view=v;
   ['inicio','cargar','tarjetas','cuentas','resumenes'].forEach(x=>{$('view'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hide',x!==v);
