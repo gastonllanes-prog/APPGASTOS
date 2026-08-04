@@ -508,10 +508,11 @@ function vCuotas(v){const cuo=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&
     html+=`<div class="panel bankgrp"><div class="bankhd"><div class="bn">🏦 ${esc(bank)}</div></div>`;
     Object.entries(cardsO).forEach(([card,items])=>{items.sort((a,b)=>(a.cuota_total-b.cuota_total)||(a.monto-b.monto));
       const totCard=items.reduce((s,m)=>s+restante(m),0);grand+=totCard;
+      const totMes=items.reduce((s,m)=>s+ +m.monto,0);
       html+=`<div style="padding:4px 20px 2px;font-weight:600;color:var(--ink-2);font-size:13px;border-top:1px solid var(--line-2)">${esc(card)}${/nancy/i.test(card)?' · <span class="tag nancy">Nancy</span>':''}</div>
       <table><thead><tr><th>Compra</th><th>Cuota</th><th style="text-align:right">Por mes</th><th style="text-align:right">Restante</th></tr></thead><tbody>
       ${items.map(m=>{const c=cuotaCur(m);return `<tr><td>${esc(m.descripcion)}</td><td>${c.actual} de ${c.total}</td><td class="n">${money(m.monto)}</td><td class="n" style="color:var(--neg)">${money(restante(m))}</td></tr>`;}).join('')}
-      <tr class="total"><td colspan="3">Total ${esc(card)}</td><td class="n">${money(totCard)}</td></tr></tbody></table>`;});
+      <tr class="total"><td colspan="2">Total ${esc(card)} · <span style="color:var(--plum)">mensual (próximo resumen)</span></td><td class="n" style="color:var(--plum)">${money(totMes)}</td><td class="n">${money(totCard)}</td></tr></tbody></table>`;});
     html+=`</div>`;});
   const mensual=cuo.reduce((s,m)=>s+ +m.monto,0);
   // Planes de pago en cuotas que NO son de tarjeta (AFIP, contador, etc.) — viven en vencimientos
