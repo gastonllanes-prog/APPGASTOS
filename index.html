@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.24</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.25</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -447,7 +447,14 @@ function vCuentas(v){const bal=balances(),H=health(bal),banks={};DATA.accts.forE
 // TARJETAS
 const bankClassW=c=>/nancy/i.test(c)?'nancy':/amex/i.test(c)?'amex':/macro/i.test(c)?'macro':/bbva/i.test(c)?'bbva':/santander/i.test(c)?'santander':'';
 const CARD_ACCT={'Visa Macro':'Macro','Visa Santander':'Santander','Visa Santander (Nancy)':'Santander','Visa BBVA':'BBVA','Master BBVA':'BBVA'};
-const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};
+const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000,'Visa Macro':4000000};   // límites de compra (de los resúmenes)
+const CARD_LIMIT_USD={'Visa Santander':4500,'Visa Santander (Nancy)':4500};            // Santander expresa el límite en U$S
+function limitInfo(t){if(CARD_LIMIT[t]!=null)return{lim:CARD_LIMIT[t],label:money(CARD_LIMIT[t])};
+  if(CARD_LIMIT_USD[t]!=null)return{lim:CARD_LIMIT_USD[t]*USD,label:'US$ '+CARD_LIMIT_USD[t].toLocaleString('es-AR')+' ≈ '+money(CARD_LIMIT_USD[t]*USD)};return null;}
+// Usado = resumen a pagar vigente + capital de cuotas que quedan (aprox)
+function usadoTarjeta(t){const R=resumenActivo(t);
+  const cuo=DATA.movs.filter(m=>{if(m.tarjeta!==t)return false;const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>{const c=cuotaCur(m);return s+ +m.monto*c.restantesIncl;},0);
+  return (R?+R.total_ars:0)+cuo;}
 // Resumen a pagar de una tarjeta (el activo = no pagado, más reciente)
 function resumenActivo(t){return (DATA.resumenes||[]).filter(r=>r.tarjeta===t&&!r.pagado).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))[0];}
 function cardsAll(){return [...new Set([...cardsInUse(),...(DATA.resumenes||[]).filter(r=>!r.pagado).map(r=>r.tarjeta)])];}
@@ -457,19 +464,21 @@ function vTarjetas(v){
   const list=[...new Set([...Object.keys(CYCLES),...cardsInUse(),...(DATA.resumenes||[]).map(r=>r.tarjeta)])];
   const btn='margin-top:10px;background:rgba(255,255,255,.2);border:0;color:#fff;padding:6px 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer';
   v.innerHTML=`<div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
-    ${list.map(t=>{const R=resumenActivo(t),est=cardEstimate(t),full=DATA.movs.filter(m=>m.tarjeta===t).reduce((s,m)=>s+ +m.monto,0),lim=CARD_LIMIT[t],acc=CARD_ACCT[t]||'';
+    ${list.map(t=>{const R=resumenActivo(t),est=cardEstimate(t),li=limitInfo(t),acc=CARD_ACCT[t]||'';
+      const dispHtml=li?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">🛒 Disponible para compras: ${money(Math.max(0,li.lim-usadoTarjeta(t)))}<span style="opacity:.7"> · límite ${li.label}</span></div>`:'';
       let body;
       if(R){const neto=(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0);
         body=`<div class="pay">A pagar${R.forma_pago==='manual'?' · pago manual':' · débito automático'}${acc?' de '+esc(acc):''}</div>
           <div class="paybig mono">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
           <div class="pay" style="margin-top:2px">vence ${R.vto?fdateLong(R.vto):'—'}</div>
           ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">💵 Pagando los US$ en dólares: <b>${money(neto)}</b><div style="opacity:.8;font-weight:400">ahorrás ${money(R.percepcion_ars)} de percepción</div></div>`:''}
+          ${dispHtml}
           <button onclick="marcarPagada('${R.id}')" style="${btn};background:rgba(255,255,255,.92);color:#166534">✓ Marcar pagada</button>
           <button onclick="formResumen('${esc(t)}','${R.id}')" style="${btn}">✎ editar</button>`;
       }else{
         body=`<div class="pay">A pagar (estimado)${acc?' · se debita de '+esc(acc):''}</div>
           <div class="paybig mono">${money(est)}</div>
-          ${lim!=null?`<div class="pay" style="margin-top:8px;font-weight:600;opacity:.95">Disponible para gastar: ${money(lim-full)}<span style="opacity:.7"> · de ${money(lim)}</span></div>`:''}
+          ${dispHtml}
           <button onclick="formResumen('${esc(t)}','')" style="${btn}">+ Cargar resumen a pagar</button>`;
       }
       return `<div class="tcard ${bankClassW(t)}"><div class="ct-top">${logoBadge(acc)}<img class="netlogo" src="${netLogoW(t)}" alt=""></div><div class="ct-name">${esc(t)}</div>${body}</div>`;

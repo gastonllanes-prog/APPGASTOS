@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.24';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.25';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -363,6 +363,7 @@ function enterApp(){
   $('userEmail').textContent=session?session.user.email:'demo@caja';
   $('fecha').value=today().toLocaleDateString('en-CA');
   wireCargar();renderChips();renderCards();renderAll();
+  switchView('cargar');   // la app abre lista para cargar el gasto (lo que más se usa)
 }
 
 // ---- agregación ----
@@ -416,7 +417,13 @@ function acctCards(){const bal=balances();const g={};DATA.accts.forEach(a=>{cons
       <div style="margin-top:12px">${accs.map(a=>{const b=bal[a.id]||0,ah=esAhorro(a),short=(a.nombre.split('·').slice(1).join('·').trim()||a.nombre);
         return `<div class="acctline"><span>${esc(short)}${ah?' <span class="tagx" style="background:rgba(255,255,255,.22);color:#fff">ahorro</span>':''}${!isInv(a)?`<button class="tog" data-toga="${a.id}">${ah?'sacar de ahorro':'marcar ahorro'}</button>`:''}<button class="tog" data-edit="${a.id}">✎ saldo</button></span><span class="num" style="font-weight:700">${isUSD(a)?moneyU(b):money(b)}</span></div>`;}).join('')}</div>
     </div>`;}).join('');}
-const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000};   // límites de compra sacados de los resúmenes (los demás, cuando me pases el dato)
+const CARD_LIMIT={'Visa BBVA':10250000,'Master BBVA':10000000,'Visa Macro':4000000};   // límites de compra (de los resúmenes)
+const CARD_LIMIT_USD={'Visa Santander':4500,'Visa Santander (Nancy)':4500};            // Santander expresa el límite en U$S
+function limitInfo(t){if(CARD_LIMIT[t]!=null)return{lim:CARD_LIMIT[t],label:money(CARD_LIMIT[t])};
+  if(CARD_LIMIT_USD[t]!=null)return{lim:CARD_LIMIT_USD[t]*USD,label:'US$ '+CARD_LIMIT_USD[t].toLocaleString('es-AR')+' ≈ '+money(CARD_LIMIT_USD[t]*USD)};return null;}
+function usadoTarjeta(t){const R=resumenActivo(t);
+  const cuo=DATA.movs.filter(m=>{if(m.tarjeta!==t)return false;const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>{const c=cuotaCur(m);return s+ +m.monto*c.restantesIncl;},0);
+  return (R?+R.total_ars:0)+cuo;}
 const knownCards=()=>[...new Set([...Object.keys(CYCLES),...cardsInUse()])];
 
 // ---- render ----
@@ -463,18 +470,21 @@ function renderTarjetas(){const box=$('tcards');const cards=[...new Set([...know
   if(!cards.length){box.innerHTML='<div class="empty"><span class="e">💳</span>Todavía no cargaste tarjetas.</div>';return;}
   box.innerHTML=cards.map(c=>{const R=resumenActivo(c);const e=cardEstimate(c);const acc=CARD_ACCT[c];const lim=CARD_LIMIT[c];const raw=DATA.movs.filter(m=>m.tarjeta===c).reduce((s,m)=>s+ +m.monto,0);const disp=lim!=null?lim-raw:null;
     const cuotas=DATA.movs.filter(m=>{if(m.tarjeta!==c)return false;const cc=cuotaCur(m);return cc&&cc.activa;}).sort((a,b)=>a.cuota_total-b.cuota_total);
+    const li=limitInfo(c);
+    const dispLine=li?`<div class="meta" style="margin-top:4px;font-weight:700;opacity:.95"><span>🛒 disponible p/ compras</span><span>${money(Math.max(0,li.lim-usadoTarjeta(c)))}</span></div><div class="meta" style="opacity:.7"><span>límite</span><span>${li.label}</span></div>`:'';
     let head;
     if(R){const neto=(+R.total_ars||0)-((R.forma_pago==='manual'&&+R.percepcion_ars)?+R.percepcion_ars:0);
       head=`<div class="big num" style="margin-top:4px">${money(R.total_ars)}${+R.total_usd?' · '+moneyU(R.total_usd):''}</div>
         <div class="meta"><span>a pagar${R.forma_pago==='manual'?' · manual':' · déb. autom.'}</span><span>vence ${R.vto?fdate(R.vto):'—'}</span></div>
         ${acc?`<div class="meta" style="margin-top:2px"><span>de ${esc(acc)}</span><span></span></div>`:''}
         ${(R.forma_pago==='manual'&&+R.percepcion_ars)?`<div class="meta" style="margin-top:4px;font-weight:700"><span>US$ en dólares</span><span>${money(neto)}</span></div><div class="meta" style="opacity:.8"><span>ahorrás percepción</span><span>${money(R.percepcion_ars)}</span></div>`:''}
+        ${dispLine}
         <button class="tog" data-pagar="${R.id}" style="margin-top:10px;padding:6px 12px;font-size:.72rem;background:rgba(255,255,255,.9);color:#166534">✓ Marcar pagada</button>`;
     }else{
       head=`<div class="big num" style="margin-top:4px">${money(e.total)}</div>
         <div class="meta"><span>a pagar (estimado)</span><span>vence ${e.vto.getDate()}-${MES[e.vto.getMonth()]}</span></div>
         ${acc?`<div class="meta" style="margin-top:2px"><span>se debita de ${esc(acc)}</span><span></span></div>`:''}
-        ${disp!=null?`<div class="meta" style="margin-top:2px;font-weight:700;opacity:.95"><span>disponible para gastar</span><span>${money(disp)}</span></div>`:''}`;
+        ${dispLine}`;
     }
     return `<div class="tcard ${bankClass(c)}"><div class="ct-top">${logoBadge(CARD_ACCT[c]||'')}<img class="netlogo" src="${netLogo(c)}" alt=""></div><div class="ct-name">${esc(c)}</div>${head}
       ${cuotas.length?`<div style="margin-top:10px">${cuotas.map(m=>{const cc=cuotaCur(m);return `<div class="cuoline"><span>${esc(m.descripcion||'Cuota')} · ${cc.actual}/${cc.total}</span><span class="num">${money(m.monto)}</span></div>`;}).join('')}</div>`:''}
