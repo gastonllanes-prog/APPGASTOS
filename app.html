@@ -428,13 +428,17 @@ function renderHeader(){const H=health();
   $('hInv').textContent=money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):'');
 }
 function renderPay(){const box=$('payList');const items=[];
-  cardsInUse().forEach(c=>{const e=cardEstimate(c);if(e.total>0)items.push({date:e.vto,t:c,s:(e.cuotasMes?'cuotas $'+Math.round(e.cuotasMes).toLocaleString('es-AR'):'')+(e.cicloAbierto?(e.cuotasMes?' + ':'')+'consumos $'+Math.round(e.cicloAbierto).toLocaleString('es-AR'):''),val:e.total,estim:true});});
+  cardsAll().forEach(c=>{const R=resumenActivo(c);
+    if(R){const neto=aPagarPesos(c);if(neto>0||+R.total_usd)items.push({date:R.vto?new Date(R.vto+'T00:00:00'):today(),t:c,s:(+R.total_usd?'+ US$ '+(+R.total_usd).toLocaleString('es-AR')+' · ':'')+(R.forma_pago==='manual'?'pago manual':'débito automático'),val:neto,estim:false});}
+    else{const e=cardEstimate(c);if(e.total>0)items.push({date:e.vto,t:c,s:(e.cuotasMes?'cuotas $'+Math.round(e.cuotasMes).toLocaleString('es-AR'):'')+(e.cicloAbierto?(e.cuotasMes?' + ':'')+'consumos $'+Math.round(e.cicloAbierto).toLocaleString('es-AR'):''),val:e.total,estim:true});}});
   (DATA.vencs||[]).filter(x=>x.estado!=='pagado'&&x.vence).forEach(x=>items.push({date:new Date(x.vence+'T00:00:00'),t:x.concepto,s:(x.cuentas&&x.cuentas.nombre)?'de '+x.cuentas.nombre:'',val:+x.monto||0,estim:false}));
   items.sort((a,b)=>a.date-b.date);
-  if(!items.length){box.innerHTML='<div class="empty"><span class="e">📅</span>Sin pagos próximos cargados.<br>Cargá gastos con tarjeta o tus cuotas y aparecen acá.</div>';return;}
+  const cuoMens=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
+  const compFoot=cuoMens?`<div class="pay" style="background:var(--gold-wash)"><div class="when"><div class="d">📅</div></div><div class="info"><div class="t">Comprometido próximo resumen</div><div class="s">cuotas de tarjeta que ya debés</div></div><div class="val num">${money(cuoMens)}</div></div>`:'';
+  if(!items.length&&!compFoot){box.innerHTML='<div class="empty"><span class="e">📅</span>Sin pagos próximos cargados.<br>Cargá gastos con tarjeta o tus cuotas y aparecen acá.</div>';return;}
   box.innerHTML=items.map(i=>`<div class="pay"><div class="when"><div class="d">${i.date.getDate()}</div><div class="m">${MES[i.date.getMonth()]}</div></div>
     <div class="info"><div class="t">${esc(i.t)} ${i.estim?'<span class="estim">estimado</span>':''}</div><div class="s">${esc(i.s)}</div></div>
-    <div class="val num">${money(i.val)}</div></div>`).join('');
+    <div class="val num">${money(i.val)}</div></div>`).join('')+compFoot;
 }
 function renderHome(){const ms=DATA.movs.slice(0,8);$('cntMov').textContent=DATA.movs.length+' movs';
   const g=$('acctGlance');if(g){g.innerHTML=acctCards();g.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));g.querySelectorAll('[data-edit]').forEach(bn=>bn.onclick=()=>editSaldo(bn.dataset.edit));}
