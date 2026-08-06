@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.26</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.27</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -353,6 +353,8 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
   <div class="panel" style="margin-bottom:20px;background:var(--plum-wash);border-color:#dcc9ea"><button id="heroBtn_ahorro" class="hbtn" style="background:transparent;width:100%;padding:14px 20px;display:flex;align-items:center;justify-content:space-between" onclick="togglePatr('ahorro')"><span style="font-weight:700;color:var(--plum)">🔒 Ahorros (no se tocan) <span class="drx" style="color:var(--plum)">ver detalle ▾</span></span><span class="mono" style="font-weight:700;color:var(--plum);font-size:1.1rem">${money(H.ahoPesos)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></button>
     <div id="drill_ahorro" class="hide pad" style="padding-top:0">${ahoList.map(drillRow).join('')||'<div class="empty">Sin ahorros cargados. Marcá una cuenta como “ahorro” en Cuentas.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total ahorros</span><span class="av">${money(H.ahoPesos)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></div></div></div>
 
+  ${gastosListado(ms)}
+
   <div class="panel" style="margin-bottom:20px;${pos?'':'border-color:#e3b3b3'}">
     <div class="ph"><h3>💰 ¿Cuánto puedo gastar?</h3><span class="meta">plata líquida, sin tocar inversiones</span></div>
     <div class="hgrid">
@@ -376,6 +378,18 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
   <div class="g2"><div class="panel"><div class="ph"><h3>Gastos por categoría</h3><span class="meta">tocá para ver el detalle →</span></div><div>${topcats.map(c=>catRow(c,maxc)).join('')||'<div class="empty">Cargá gastos para ver el detalle.</div>'}</div>${cats.length>6?`<div style="padding:10px 20px;font-size:12px;color:var(--ink-3)">+${cats.length-6} categorías más — mirá la pestaña <b>Gastos</b>.</div>`:''}</div>
     <div class="panel"><div class="ph"><h3>Composición del patrimonio</h3><span class="meta">líquido vs ahorro</span></div><div class="pad">${compBar(H,iva)}</div></div></div>`;
   wireCats(v);}
+// Listado tipo extracto: último gasto primero, columnas Fecha·Cuenta·Detalle·Monto, total al final.
+function gastosListado(ms){
+  const g=ms.filter(m=>m.tipo==='gasto').slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  if(!g.length)return '';
+  const MAX=50, rows=g.slice(0,MAX), tot=g.reduce((s,m)=>s+ +m.monto,0);
+  const src=m=>m.tarjeta?esc(m.tarjeta):(accName(m.cuenta_id)?esc(bankOf(accName(m.cuenta_id))):'—');
+  const det=m=>`${(m.categorias&&m.categorias.emoji)||''} ${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||'Gasto')}`.trim();
+  return `<div class="panel" style="margin-bottom:20px"><div class="ph"><h3>🧾 Gastos ${state.period==='mes'?'del mes':'registrados'} · último primero</h3><span class="meta">${g.length} gastos</span></div>
+  <table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Detalle</th><th style="text-align:right">Monto</th></tr></thead><tbody>
+  ${rows.map(m=>`<tr><td style="white-space:nowrap">${fdate(m.fecha)}</td><td style="white-space:nowrap">${src(m)}</td><td>${det(m)}</td><td class="n">${money(m.monto)}</td></tr>`).join('')}
+  ${g.length>MAX?`<tr><td colspan="4" style="color:var(--ink-3)">… +${g.length-MAX} más — mirá la pestaña Gastos</td></tr>`:''}
+  <tr class="total"><td colspan="3">Total</td><td class="n">${money(tot)}</td></tr></tbody></table></div>`;}
 // Sin conversión: cada moneda se muestra como es. El ancho de la barra usa una equivalencia interna SOLO para proporciones.
 function compBar(H,iva){const wP=H.liqARS,wU=H.opUsd*USD,wA=H.ahoPesos+H.ahoUsd*USD;const total=wP+wU+wA||1;
   const seg=[['Pesos operativos',wP,money(H.liqARS),'var(--pine)'],['Dólares operativos',wU,moneyU(H.opUsd),'var(--blue)'],['Ahorros (Bull + guardado)',wA,money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):''),'var(--plum)']];
