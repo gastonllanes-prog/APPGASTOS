@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.25</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.26</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -350,8 +350,8 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <button id="heroBtn_usd" class="nw usd hbtn" onclick="togglePatr('usd')"><div class="lbl">Patrimonio en dólares <span class="drx">ver detalle ▾</span></div><div class="big mono">${moneyU(H.opUsd)}</div><div class="note">dólares operativos (sin conversión)</div></button></div>
   <div id="drill_pesos" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde sale el patrimonio en pesos</h3><span class="meta">${opArs.length} cuentas</span></div><div class="pad" style="padding-top:2px">${opArs.map(drillRow).join('')||'<div class="empty">Sin cuentas operativas en pesos.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total operativo en pesos</span><span class="av">${money(H.opPesos)}</span></div></div></div>
   <div id="drill_usd" class="panel hide" style="margin:-8px 0 20px"><div class="ph"><h3>De dónde salen los dólares</h3><span class="meta">${opUsdL.length} cuentas</span></div><div class="pad" style="padding-top:2px">${opUsdL.map(drillRow).join('')||'<div class="empty">Sin dólares operativos.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur usd" style="background:transparent">Σ</span><span class="an">Total en dólares</span><span class="av">${moneyU(H.opUsd)}</span></div></div></div>
-  <div class="panel" style="margin-bottom:20px;background:var(--plum-wash);border-color:#dcc9ea"><button id="heroBtn_ahorro" class="hbtn" style="background:transparent;width:100%;padding:14px 20px;display:flex;align-items:center;justify-content:space-between" onclick="togglePatr('ahorro')"><span style="font-weight:700;color:var(--plum)">🔒 Ahorros (no se tocan) <span class="drx" style="color:var(--plum)">ver detalle ▾</span></span><span class="mono" style="font-weight:700;color:var(--plum);font-size:1.1rem">${money(H.ahoTotal)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></button>
-    <div id="drill_ahorro" class="hide pad" style="padding-top:0">${ahoList.map(drillRow).join('')||'<div class="empty">Sin ahorros cargados. Marcá una cuenta como “ahorro” en Cuentas.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total ahorros</span><span class="av">${money(H.ahoTotal)}</span></div></div></div>
+  <div class="panel" style="margin-bottom:20px;background:var(--plum-wash);border-color:#dcc9ea"><button id="heroBtn_ahorro" class="hbtn" style="background:transparent;width:100%;padding:14px 20px;display:flex;align-items:center;justify-content:space-between" onclick="togglePatr('ahorro')"><span style="font-weight:700;color:var(--plum)">🔒 Ahorros (no se tocan) <span class="drx" style="color:var(--plum)">ver detalle ▾</span></span><span class="mono" style="font-weight:700;color:var(--plum);font-size:1.1rem">${money(H.ahoPesos)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></button>
+    <div id="drill_ahorro" class="hide pad" style="padding-top:0">${ahoList.map(drillRow).join('')||'<div class="empty">Sin ahorros cargados. Marcá una cuenta como “ahorro” en Cuentas.</div>'}<div class="acct" style="border-top:2px solid var(--line);font-weight:700"><span class="cur" style="background:transparent">Σ</span><span class="an">Total ahorros</span><span class="av">${money(H.ahoPesos)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</span></div></div></div>
 
   <div class="panel" style="margin-bottom:20px;${pos?'':'border-color:#e3b3b3'}">
     <div class="ph"><h3>💰 ¿Cuánto puedo gastar?</h3><span class="meta">plata líquida, sin tocar inversiones</span></div>
@@ -364,7 +364,7 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <div class="hnote">${(()=>{const cuoMens=DATA.movs.filter(m=>{const c=cuotaCur(m);return c&&c.activa;}).reduce((s,m)=>s+ +m.monto,0);
       const comprometido=(cuoMens||H.vencMes)?` <b>📅 Ya comprometido para el mes que viene:</b>${cuoMens?` cuotas de tarjeta <b>${money(cuoMens)}</b> (van al próximo resumen)`:''}${cuoMens&&H.vencMes?' +':''}${H.vencMes?` cuota AFIP <b>${money(H.vencMes)}</b>`:''}${cuoMens||H.vencMes?` — lo cubrís con los ingresos del mes que viene.`:''}`:'';
       return pos
-      ? `Podés gastar <b>${money(H.dispPesos)}</b> en pesos (ya aparté tarjetas y el IVA del mes).${comprometido} Además tenés <b>${moneyU(H.opUsd)}</b> en dólares y <b>${money(H.ahoTotal)}</b> en ahorros (que no se tocan).${H.ivaMes?` 🧾 El IVA lo bajás cargando <b>facturas de compra</b> en la pestaña IVA.`:''}`
+      ? `Podés gastar <b>${money(H.dispPesos)}</b> en pesos (ya aparté tarjetas y el IVA del mes).${comprometido} Además tenés <b>${moneyU(H.opUsd)}</b> en dólares y <b>${money(H.ahoPesos)}${H.ahoUsd?' + '+moneyU(H.ahoUsd):''}</b> en ahorros (que no se tocan).${H.ivaMes?` 🧾 El IVA lo bajás cargando <b>facturas de compra</b> en la pestaña IVA.`:''}`
       : `⚠️ Tus pesos operativos (<b>${money(H.opPesos)}</b>) <b>no alcanzan</b> a cubrir tarjetas + IVA (<b>${money(H.deudaTarj+H.ivaMes)}</b>). Faltan <b>${money(-H.dispPesos)}</b>, que cubrirías con dólares (<b>${moneyU(H.opUsd)}</b>) o tocando ahorros.${comprometido}`;})()}</div>
   </div>
 
@@ -376,12 +376,13 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
   <div class="g2"><div class="panel"><div class="ph"><h3>Gastos por categoría</h3><span class="meta">tocá para ver el detalle →</span></div><div>${topcats.map(c=>catRow(c,maxc)).join('')||'<div class="empty">Cargá gastos para ver el detalle.</div>'}</div>${cats.length>6?`<div style="padding:10px 20px;font-size:12px;color:var(--ink-3)">+${cats.length-6} categorías más — mirá la pestaña <b>Gastos</b>.</div>`:''}</div>
     <div class="panel"><div class="ph"><h3>Composición del patrimonio</h3><span class="meta">líquido vs ahorro</span></div><div class="pad">${compBar(H,iva)}</div></div></div>`;
   wireCats(v);}
-function compBar(H,iva){const total=H.liqARS+H.usdDisp*USD+H.invARS||1;
-  const seg=[['Pesos operativos',H.liqARS,'var(--pine)'],['Dólares operativos',H.usdDisp*USD,'var(--blue)'],['Ahorros (Bull + guardado)',H.invARS,'var(--plum)']];
-  return `<div style="display:flex;height:16px;border-radius:6px;overflow:hidden;margin-bottom:14px">${seg.map(([n,v,c])=>`<div title="${n}" style="width:${v/total*100}%;background:${c}"></div>`).join('')}</div>
-    ${seg.map(([n,v,c])=>`<div class="ivrow"><span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${c};margin-right:7px"></span>${n}</span><b class="mono">${money(v)}</b></div>`).join('')}
-    <div class="ivrow" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span><b>Patrimonio total</b></span><b class="mono">${money(total)}</b></div>
-    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">El <b>${Math.round(H.invARS/total*100)}%</b> de tu patrimonio son ahorros (no se tocan). Lo operativo para el día a día es el resto.</div>`;}
+// Sin conversión: cada moneda se muestra como es. El ancho de la barra usa una equivalencia interna SOLO para proporciones.
+function compBar(H,iva){const wP=H.liqARS,wU=H.opUsd*USD,wA=H.ahoPesos+H.ahoUsd*USD;const total=wP+wU+wA||1;
+  const seg=[['Pesos operativos',wP,money(H.liqARS),'var(--pine)'],['Dólares operativos',wU,moneyU(H.opUsd),'var(--blue)'],['Ahorros (Bull + guardado)',wA,money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):''),'var(--plum)']];
+  return `<div style="display:flex;height:16px;border-radius:6px;overflow:hidden;margin-bottom:14px">${seg.map(([n,w,lbl,c])=>`<div title="${n}" style="width:${w/total*100}%;background:${c}"></div>`).join('')}</div>
+    ${seg.map(([n,w,lbl,c])=>`<div class="ivrow"><span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${c};margin-right:7px"></span>${n}</span><b class="mono">${lbl}</b></div>`).join('')}
+    <div class="ivrow" style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><span><b>Patrimonio total</b></span><b class="mono">${money(H.liqARS+H.ahoPesos)} + ${moneyU(H.opUsd+H.ahoUsd)}</b></div>
+    <div style="font-size:12px;color:var(--ink-3);margin-top:8px">El <b>${Math.round(wA/total*100)}%</b> de tu patrimonio son ahorros (no se tocan). Lo operativo para el día a día es el resto.</div>`;}
 
 // GASTOS
 // Rango de fechas propio de la pantalla Gastos (para ver "cuánto voy gastando" entre 2 fechas).
@@ -440,7 +441,7 @@ function vCuentas(v){const bal=balances(),H=health(bal),banks={};DATA.accts.forE
   v.innerHTML=`<div class="row3" style="margin-bottom:18px">
     <div class="mini"><div class="k">Pesos operativos</div><div class="v">${money(H.opPesos)}</div></div>
     <div class="mini"><div class="k">Dólares operativos</div><div class="v">${moneyU(H.opUsd)}</div></div>
-    <div class="mini"><div class="k">Ahorros</div><div class="v" style="color:var(--plum)">${money(H.ahoTotal)}</div></div></div>
+    <div class="mini"><div class="k">Ahorros</div><div class="v" style="color:var(--plum)">${money(H.ahoPesos)}${H.ahoUsd?' · '+moneyU(H.ahoUsd):''}</div></div></div>
   <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="ph" style="background:var(--pine-wash);color:var(--pine-ink);border:0;border-radius:8px;padding:8px 13px;font-weight:600;font-size:13px" onclick="formCuenta()">+ Agregar cuenta</button></div>
   <div class="hero" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">${tiles}</div>`;}
 
