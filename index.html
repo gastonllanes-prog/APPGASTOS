@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.27</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.28</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -379,17 +379,47 @@ function vPanel(v){const bal=balances(),ms=fmovs(),P=patr(bal),H=health(bal);
     <div class="panel"><div class="ph"><h3>Composición del patrimonio</h3><span class="meta">líquido vs ahorro</span></div><div class="pad">${compBar(H,iva)}</div></div></div>`;
   wireCats(v);}
 // Listado tipo extracto: último gasto primero, columnas Fecha·Cuenta·Detalle·Monto, total al final.
+let gFuente='';
 function gastosListado(ms){
-  const g=ms.filter(m=>m.tipo==='gasto').slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  if(!g.length)return '';
-  const MAX=50, rows=g.slice(0,MAX), tot=g.reduce((s,m)=>s+ +m.monto,0);
+  let g=ms.slice();
+  if(gFuente.startsWith('acc:'))g=g.filter(m=>m.cuenta_id===gFuente.slice(4));
+  else if(gFuente.startsWith('tar:'))g=g.filter(m=>m.tarjeta===gFuente.slice(4));
+  g.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const tarjetas=[...new Set(DATA.movs.filter(m=>m.tarjeta).map(m=>m.tarjeta))].sort();
+  const sel=`<select onchange="gFuente=this.value;render()" style="padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--raised);font-size:12px;font-weight:600;color:var(--ink-2)">
+    <option value="">Todas las cuentas</option>
+    ${DATA.accts.map(a=>`<option value="acc:${a.id}" ${gFuente==='acc:'+a.id?'selected':''}>🏦 ${esc(a.nombre)}</option>`).join('')}
+    ${tarjetas.map(t=>`<option value="tar:${t}" ${gFuente==='tar:'+t?'selected':''}>💳 ${esc(t)}</option>`).join('')}
+  </select>`;
+  const MAX=50, rows=g.slice(0,MAX);
+  const totG=g.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+ +m.monto,0);
+  const totI=g.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+ +m.monto,0);
   const src=m=>m.tarjeta?esc(m.tarjeta):(accName(m.cuenta_id)?esc(bankOf(accName(m.cuenta_id))):'—');
-  const det=m=>`${(m.categorias&&m.categorias.emoji)||''} ${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||'Gasto')}`.trim();
-  return `<div class="panel" style="margin-bottom:20px"><div class="ph"><h3>🧾 Gastos ${state.period==='mes'?'del mes':'registrados'} · último primero</h3><span class="meta">${g.length} gastos</span></div>
-  <table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Detalle</th><th style="text-align:right">Monto</th></tr></thead><tbody>
-  ${rows.map(m=>`<tr><td style="white-space:nowrap">${fdate(m.fecha)}</td><td style="white-space:nowrap">${src(m)}</td><td>${det(m)}</td><td class="n">${money(m.monto)}</td></tr>`).join('')}
-  ${g.length>MAX?`<tr><td colspan="4" style="color:var(--ink-3)">… +${g.length-MAX} más — mirá la pestaña Gastos</td></tr>`:''}
-  <tr class="total"><td colspan="3">Total</td><td class="n">${money(tot)}</td></tr></tbody></table></div>`;}
+  const det=m=>`${(m.categorias&&m.categorias.emoji)||''} ${esc(m.descripcion||(m.categorias&&m.categorias.nombre)||(m.tipo==='ingreso'?'Ingreso':'Gasto'))}`.trim();
+  return `<div class="panel" style="margin-bottom:20px"><div class="ph"><h3>🧾 Movimientos ${state.period==='mes'?'del mes':'registrados'} · último primero</h3><div style="display:flex;gap:10px;align-items:center">${sel}<span class="meta">${g.length} movs</span></div></div>
+  ${g.length?`<table><thead><tr><th>Fecha</th><th>Cuenta</th><th>Detalle</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>
+  ${rows.map(m=>{const ing=m.tipo==='ingreso';return `<tr><td style="white-space:nowrap">${fdate(m.fecha)}</td><td style="white-space:nowrap">${src(m)}</td><td>${det(m)}</td><td class="n" style="${ing?'color:var(--pos)':''}">${ing?'+':'−'}${money(m.monto)}</td><td style="width:34px;text-align:center">${m.id?`<button class="recat" title="Editar" onclick="formEditMov('${m.id}')">✎</button>`:''}</td></tr>`;}).join('')}
+  ${g.length>MAX?`<tr><td colspan="5" style="color:var(--ink-3)">… +${g.length-MAX} más — mirá la pestaña Gastos</td></tr>`:''}
+  ${totI?`<tr class="total"><td colspan="3">Total ingresos</td><td class="n" style="color:var(--pos)">+${money(totI)}</td><td></td></tr>`:''}
+  <tr class="total"><td colspan="3">Total gastos</td><td class="n" style="color:var(--neg)">−${money(totG)}</td><td></td></tr></tbody></table>`:'<div class="empty">Sin movimientos con este filtro.</div>'}</div>`;}
+// Editor completo de un movimiento (monto, detalle, fecha, categoría) + borrar
+function formEditMov(id){const m=DATA.movs.find(x=>x.id===id);if(!m)return;
+  const cats=(DATA.cats||[]).slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>({v:c.id,t:(c.emoji?c.emoji+' ':'')+c.nombre}));
+  modal('Editar movimiento',`
+   <div style="font-size:12px;color:var(--ink-3);margin-bottom:12px">${m.tarjeta?'💳 '+esc(m.tarjeta):(accName(m.cuenta_id)?'🏦 '+esc(accName(m.cuenta_id)):'')} · ${m.tipo}</div>
+   <div class="fld"><label>Monto</label><input id="e_monto" inputmode="decimal" value="${nAR(m.monto)}"></div>
+   <div class="fld"><label>Detalle</label><input id="e_desc" value="${esc(m.descripcion||'')}"></div>
+   <div class="fld"><label>Fecha</label><input id="e_fecha" type="date" value="${esc(m.fecha||'')}"></div>
+   <div class="fld"><label>Categoría</label><select id="e_cat">${opts(cats,m.categoria_id)}</select></div>
+   <button onclick="delMovWeb('${id}')" style="width:100%;margin-bottom:8px;padding:11px;border:0;border-radius:11px;background:#f6e3e3;color:var(--neg);font-weight:600;cursor:pointer">🗑 Borrar movimiento</button>
+   <button class="save" onclick="saveEditMov('${id}')">Guardar cambios</button>`);}
+async function saveEditMov(id){const monto=parseFloat(($('e_monto').value||'').replace(/\./g,'').replace(',','.'));if(!monto||monto<=0)return alert('Poné un monto válido.');
+  const row={monto,descripcion:$('e_desc').value.trim()||null,fecha:$('e_fecha').value,categoria_id:$('e_cat').value||null};
+  if(!DEMO&&session){const {error}=await db.from('movimientos').update(row).eq('id',id);if(error){alert('No se pudo: '+error.message);return;}await load();closeModal();return;}
+  const m=DATA.movs.find(x=>x.id===id);Object.assign(m,row);const c=DATA.cats.find(x=>x.id===row.categoria_id);if(c)m.categorias={nombre:c.nombre,emoji:c.emoji};closeModal();render();}
+async function delMovWeb(id){if(!confirm('¿Borrar este movimiento? No se puede deshacer.'))return;
+  if(!DEMO&&session){const {error}=await db.from('movimientos').delete().eq('id',id);if(error){alert('No se pudo: '+error.message);return;}await load();closeModal();return;}
+  DATA.movs=DATA.movs.filter(x=>x.id!==id);closeModal();render();}
 // Sin conversión: cada moneda se muestra como es. El ancho de la barra usa una equivalencia interna SOLO para proporciones.
 function compBar(H,iva){const wP=H.liqARS,wU=H.opUsd*USD,wA=H.ahoPesos+H.ahoUsd*USD;const total=wP+wU+wA||1;
   const seg=[['Pesos operativos',wP,money(H.liqARS),'var(--pine)'],['Dólares operativos',wU,moneyU(H.opUsd),'var(--blue)'],['Ahorros (Bull + guardado)',wA,money(H.ahoPesos)+(H.ahoUsd?' · '+moneyU(H.ahoUsd):''),'var(--plum)']];

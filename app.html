@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.27';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.28';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -449,14 +449,17 @@ function renderPay(){const box=$('payList');const items=[];
 }
 function renderHome(){
   const g=$('acctGlance');if(g){g.innerHTML=acctCards();g.querySelectorAll('[data-toga]').forEach(bn=>bn.onclick=()=>toggleAhorro(bn.dataset.toga));g.querySelectorAll('[data-edit]').forEach(bn=>bn.onclick=()=>editSaldo(bn.dataset.edit));}
-  // Extracto: solo gastos, último primero, con total al pie
-  const gastos=DATA.movs.filter(m=>m.tipo==='gasto').slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const MAX=30, rows=gastos.slice(0,MAX), tot=gastos.reduce((s,m)=>s+ +m.monto,0);
-  $('cntMov').textContent=gastos.length+' · '+money(tot);
-  const box=$('listHome');if(!gastos.length){box.innerHTML='<div class="empty"><span class="e">📭</span>Cargá tu primer gasto.</div>';return;}
+  // Extracto: TODOS los movimientos (ingresos en verde +), último primero, totales al pie
+  const movs=DATA.movs.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const MAX=30, rows=movs.slice(0,MAX);
+  const totG=movs.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+ +m.monto,0);
+  const totI=movs.filter(m=>m.tipo==='ingreso').reduce((s,m)=>s+ +m.monto,0);
+  $('cntMov').textContent=movs.length+' movs';
+  const box=$('listHome');if(!movs.length){box.innerHTML='<div class="empty"><span class="e">📭</span>Cargá tu primer movimiento.</div>';return;}
   box.innerHTML=rows.map(txHtml).join('')
-    +(gastos.length>MAX?`<div class="li" style="color:var(--ink-3);font-size:.78rem">… +${gastos.length-MAX} más</div>`:'')
-    +`<div class="li" style="background:var(--surface-2)"><div class="ic">Σ</div><div class="mm"><div class="t">Total</div></div><div class="amt2 num">–${money(tot)}</div></div>`;
+    +(movs.length>MAX?`<div class="li" style="color:var(--ink-3);font-size:.78rem">… +${movs.length-MAX} más</div>`:'')
+    +(totI?`<div class="li" style="background:var(--surface-2)"><div class="ic">Σ</div><div class="mm"><div class="t">Total ingresos</div></div><div class="amt2 num pos">+${money(totI)}</div></div>`:'')
+    +`<div class="li" style="background:var(--surface-2)"><div class="ic">Σ</div><div class="mm"><div class="t">Total gastos</div></div><div class="amt2 num">–${money(totG)}</div></div>`;
   box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delMov(b.dataset.del));
 }
 function txHtml(m){const cat=m.categorias||{};const isIng=m.tipo==='ingreso';const src=srcTag(m);
