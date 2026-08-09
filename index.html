@@ -145,7 +145,7 @@
 </div>
 <div class="app hide" id="appView">
   <aside>
-    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.28</span></div>
+    <div class="brand"><div class="m">C</div><b>Caja</b><span style="margin-left:auto;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--surface-2);padding:2px 8px;border-radius:20px" class="appver">v0.29</span></div>
     <div class="seg" id="scope"><button class="on" data-s="todo">Todo</button><button data-s="personal">Personal</button><button data-s="actividad">Actividad</button></div>
     <nav id="nav">
       <button class="nav-i on" data-v="panel"><span class="ic">◆</span> Panel</button>
@@ -744,7 +744,12 @@ async function saveVenc(){const row={concepto:$('x_con').value.trim(),cuenta_id:
   const acc=DATA.accts.find(a=>a.id===row.cuenta_id);
   await insert('vencimientos',row,()=>{DATA.vencs=DATA.vencs||[];DATA.vencs.push({...row,cuentas:acc?{nombre:acc.nombre}:null});});closeModal();state.view='venc';render();}
 async function insert(table,row,demoFn){if(DEMO||!session){demoFn&&demoFn();return;}
-  const r={...row,user_id:session.user.id};const {error}=await db.from(table).insert(r);if(error){alert('No se pudo guardar: '+error.message);throw error;}await load();}
+  const r={...row,user_id:session.user.id};let {error}=await db.from(table).insert(r);
+  if(error&&/jwt|token|expired|401|refresh|auth/i.test(error.message||'')){   // token vencido (pestaña dormida): refresco y reintento
+    try{const rs=await db.auth.refreshSession();if(rs.data&&rs.data.session)session=rs.data.session;}catch(x){}
+    ({error}=await db.from(table).insert(r));}
+  if(error){alert('⚠️ NO SE GUARDÓ: '+error.message);throw error;}
+  try{await load();}catch(e){demoFn&&demoFn();render();}}   // guardado OK aunque falle el refresco: actualizo local
 
 const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
 function fdate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});}catch(e){return d||'';}}

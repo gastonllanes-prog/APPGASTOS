@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.28';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.29';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -314,7 +314,13 @@ const money=n=>HIDE?'$ ••••':'$ '+Math.round(n).toLocaleString('es-AR');
 const moneyU=n=>HIDE?'US$ ••••':'US$ '+Math.round(n).toLocaleString('es-AR');
 function toggleHide(){HIDE=!HIDE;try{localStorage.setItem('caja_hide',HIDE?'1':'0');}catch(e){}const b=document.getElementById('eyeBtn');if(b)b.textContent=HIDE?'🙈':'👁';renderAll();}
 const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
-function banner(m,ok){const b=$('banner');b.textContent=m;b.className=(ok?'ok':'err')+' show';setTimeout(()=>b.className=b.className.replace('show',''),ok?2000:5000);const s=$('status');if(s){s.textContent=m;s.style.color=ok?'var(--pos)':'var(--neg)';}}
+function banner(m,ok){const b=$('banner');b.textContent=m;b.className=(ok?'ok':'err')+' show';setTimeout(()=>b.className=b.className.replace('show',''),ok?2500:9000);const s=$('status');if(s){s.textContent=m;s.style.color=ok?'var(--pos)':'var(--neg)';}}
+// Al volver a la app (estaba en segundo plano): refresca el token y re-sincroniza los datos.
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState!=='visible'||DEMO||!db||!session)return;
+  try{const {data}=await db.auth.getSession();if(data&&data.session)session=data.session;
+    await reload();renderAll();}catch(e){}
+});
 try{db=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){}
 
 // ---- fechas ----
@@ -587,10 +593,22 @@ async function saveMov(){
   const b=$('btnSave'),p=b.textContent;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{
     if(DEMO||!session){const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,id:'tmp'+Date.now(),categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});}
-    else{const {error}=await db.from('movimientos').insert({...row,user_id:session.user.id});if(error)throw error;await reload();}
-    banner('Guardado ✓',true);$('monto').value='';$('desc').value='';st.enCuotas=false;$('cuoSw').classList.remove('on');$('cuoStepper').classList.add('hide');$('cuoHint').classList.add('hide');
+    else{
+      // insert CONFIRMADO (.select() devuelve la fila ya guardada) + reintento si el token venció (celu en segundo plano)
+      let r=await db.from('movimientos').insert({...row,user_id:session.user.id}).select().single();
+      if(r.error&&/jwt|token|expired|401|refresh|auth/i.test(r.error.message||'')){
+        try{const rs=await db.auth.refreshSession();if(rs.data&&rs.data.session)session=rs.data.session;}catch(x){}
+        r=await db.from('movimientos').insert({...row,user_id:session.user.id}).select().single();
+      }
+      if(r.error)throw r.error;
+      // ya está confirmado en la base: lo muestro YA; el refresco corre aparte y si falla NO es error de guardado
+      const cat=DATA.cats.find(c=>c.id===row.categoria_id);
+      DATA.movs.unshift({...(r.data||row),categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});
+      reload().then(()=>renderAll()).catch(()=>{});
+    }
+    banner('Guardado ✓ '+money(row.monto),true);$('monto').value='';$('desc').value='';st.enCuotas=false;$('cuoSw').classList.remove('on');$('cuoStepper').classList.add('hide');$('cuoHint').classList.add('hide');
     renderAll();switchView('inicio');
-  }catch(e){banner('No se guardó: '+(e.message||e));}
+  }catch(e){banner('⚠️ NO SE GUARDÓ — reintentá: '+(e.message||e));try{navigator.vibrate&&navigator.vibrate(200);}catch(x){}}
   finally{b.disabled=false;b.textContent=p;}
 }
 async function addAcc(){const nombre=$('accNombre').value.trim();if(!nombre)return banner('Ponele nombre a la cuenta.');
