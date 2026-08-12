@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.30';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.31';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -315,9 +315,21 @@ const moneyU=n=>HIDE?'US$ ••••':'US$ '+Math.round(n).toLocaleString('es-
 function toggleHide(){HIDE=!HIDE;try{localStorage.setItem('caja_hide',HIDE?'1':'0');}catch(e){}const b=document.getElementById('eyeBtn');if(b)b.textContent=HIDE?'🙈':'👁';renderAll();}
 const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
 function banner(m,ok){const b=$('banner');b.textContent=m;b.className=(ok?'ok':'err')+' show';setTimeout(()=>b.className=b.className.replace('show',''),ok?2500:9000);const s=$('status');if(s){s.textContent=m;s.style.color=ok?'var(--pos)':'var(--neg)';}}
-// Al volver a la app (estaba en segundo plano): refresca el token y re-sincroniza los datos.
+// Aviso de versión nueva: abrir desde el ícono RETOMA la app congelada (no recarga el código).
+// Chequeamos qué versión hay publicada y, si es más nueva, banner clickeable para actualizar al toque.
+async function checkVersion(){try{
+  const t=await fetch('./service-worker.js?v='+Date.now(),{cache:'no-store'}).then(r=>r.text());
+  const m=t.match(/caja-(v\d+\.\d+)/);
+  if(m&&m[1]!==VERSION){
+    const b=$('banner');b.textContent='🔄 Hay versión nueva ('+m[1]+') — tocá acá para actualizar';
+    b.className='ok show';b.style.cursor='pointer';b.onclick=()=>location.reload();
+    try{const r=await navigator.serviceWorker.getRegistration();r&&r.update();}catch(x){}
+  }}catch(e){}}
+// Al volver a la app (estaba en segundo plano): refresca el token, re-sincroniza datos y chequea versión.
 document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState!=='visible'||DEMO||!db||!session)return;
+  if(document.visibilityState!=='visible'||DEMO)return;
+  checkVersion();
+  if(!db||!session)return;
   try{const {data}=await db.auth.getSession();if(data&&data.session)session=data.session;
     await reload();renderAll();}catch(e){}
 });
@@ -335,6 +347,7 @@ function fdate(s){try{const d=new Date(s+'T00:00:00');return d.getDate()+'-'+MES
 async function boot(){
   if(DEMO){DATA=demo();enterApp();return;}
   if(!db){showLogin();banner('No cargó la librería. Revisá internet y recargá.');return;}
+  setTimeout(checkVersion,2500);   // al abrir también avisa si quedó una versión vieja
   try{const {data}=await db.auth.getSession();if(data.session){session=data.session;await load();}else showLogin();}
   catch(e){showLogin();banner('No pude conectar. Recargá.');}
 }
