@@ -299,7 +299,7 @@
 <script>
 const SUPA_URL="https://chrbcnmnhraelnzekhtr.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNocmJjbm1uaHJhZWxuemVraHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4ODI0MjUsImV4cCI6MjEwMDQ1ODQyNX0.DuWIkMBke2JuK31BK734VTowQ8SD3BinENAD1mMb9mk";
-const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.29';
+const USD=1528, DEMO=location.hash.includes('demo'), VERSION='v0.30';
 // Ciclos de cada tarjeta (día de cierre / día de vencimiento) — sacados de tus resúmenes
 const CYCLES={'Visa Santander':{cierre:2,vto:13},'Visa Santander (Nancy)':{cierre:2,vto:13},'Visa Macro':{cierre:23,vto:3},'Visa BBVA':{cierre:30,vto:7},'Master BBVA':{cierre:30,vto:7},'Amex Santander':{cierre:26,vto:9}};
 const DEFAULT_CATS=[{nombre:'Alimentos/Súper',emoji:'🛒'},{nombre:'Combustible',emoji:'⛽'},{nombre:'Farmacia',emoji:'💊'},{nombre:'Gastronomía',emoji:'🍔'},{nombre:'Servicios',emoji:'🏠'},{nombre:'Impuestos',emoji:'🏛️'},{nombre:'Alquiler',emoji:'🔑'},{nombre:'Otros',emoji:'•'}];
@@ -508,9 +508,12 @@ function renderTarjetas(){const box=$('tcards');const cards=[...new Set([...know
 }
 async function marcarPagada(id){const r=(DATA.resumenes||[]).find(x=>x.id===id);if(!r)return;
   if(!confirm('¿Marcar '+r.tarjeta+' como pagada?\n\nSi ya se debitó de la cuenta, ajustá el saldo con ✎ en Cuentas.'))return;
-  if(!DEMO&&session){const {error}=await db.from('resumen_tarjeta').update({pagado:true}).eq('id',id);if(error){banner('No se pudo: '+error.message);return;}await reload();}
-  else r.pagado=true;
-  banner('Tarjeta marcada como pagada ✓',true);renderAll();}
+  try{
+    if(!DEMO&&session){const {error}=await conTimeout(db.from('resumen_tarjeta').update({pagado:true}).eq('id',id));if(error){banner('No se pudo: '+error.message);return;}
+      r.pagado=true;reload().then(()=>renderAll()).catch(()=>{});}
+    else r.pagado=true;
+    banner('Tarjeta marcada como pagada ✓',true);renderAll();
+  }catch(e){banner('⚠️ No se pudo: '+(e.message||e));}}
 function renderCuentas(){const box=$('accList');
   if(!DATA.accts.length){box.innerHTML='<div class="empty"><span class="e">🏦</span>Agregá tu primera cuenta abajo.</div>';return;}
   box.innerHTML=acctCards();
@@ -578,12 +581,16 @@ async function ensureEfectivo(){
   if(ya)return ya.id;
   const row={nombre:'Efectivo',tipo:'efectivo',moneda:'ARS',ahorro:false,saldo:0};
   if(DEMO||!session){const id='tmp'+Date.now();DATA.accts.push({...row,id});return id;}
-  const {data,error}=await db.from('cuentas').insert({...row,user_id:session.user.id}).select().single();
-  if(error){banner('No pude crear la cuenta Efectivo: '+error.message);return null;}
+  let data,error;try{({data,error}=await conTimeout(db.from('cuentas').insert({...row,user_id:session.user.id}).select().single()));}catch(e){error=e;}
+  if(error){banner('No pude crear la cuenta Efectivo: '+(error.message||error));return null;}
   DATA.accts.push(data);banner('Creé tu cuenta Efectivo ✓',true);return data.id;}
+// Toda llamada a la base desde el guardado tiene TIEMPO LÍMITE: si la red del celu quedó muerta
+// (clásico al volver de segundo plano), antes se colgaba PARA SIEMPRE con la ruedita. Ahora corta y avisa.
+const conTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('Red lenta o sin conexión')),ms||12000))]);
 async function saveMov(){
   const monto=parseFloat(($('monto').value||'').replace(/\./g,'').replace(',','.'));
   if(!monto||monto<=0)return banner('Poné un monto válido.');
+  if(!DEMO&&session&&navigator.onLine===false){banner('⚠️ SIN CONEXIÓN — el gasto NO se guardó. Reintentá con señal.');try{navigator.vibrate&&navigator.vibrate(200);}catch(x){}return;}
   const row={tipo:st.tipo,monto,ambito:st.ambito,categoria_id:st.catId||null,descripcion:$('desc').value.trim()||null,fecha:$('fecha').value};
   if(st.tipo==='gasto'&&st.method==='tarjeta'){row.tarjeta=st.card;row.cuenta_id=null;
     if(st.enCuotas){row.cuota_actual=1;row.cuota_total=st.nCuo;row.monto=+(monto/st.nCuo).toFixed(2);row.descripcion=(row.descripcion||'')+` (total $${Math.round(monto).toLocaleString('es-AR')})`;}
@@ -594,11 +601,11 @@ async function saveMov(){
   try{
     if(DEMO||!session){const cat=DATA.cats.find(c=>c.id===row.categoria_id);DATA.movs.unshift({...row,id:'tmp'+Date.now(),categorias:cat?{nombre:cat.nombre,emoji:cat.emoji}:null});}
     else{
-      // insert CONFIRMADO (.select() devuelve la fila ya guardada) + reintento si el token venció (celu en segundo plano)
-      let r=await db.from('movimientos').insert({...row,user_id:session.user.id}).select().single();
+      // insert CONFIRMADO (.select() devuelve la fila ya guardada) + timeout + reintento si el token venció
+      let r=await conTimeout(db.from('movimientos').insert({...row,user_id:session.user.id}).select().single());
       if(r.error&&/jwt|token|expired|401|refresh|auth/i.test(r.error.message||'')){
-        try{const rs=await db.auth.refreshSession();if(rs.data&&rs.data.session)session=rs.data.session;}catch(x){}
-        r=await db.from('movimientos').insert({...row,user_id:session.user.id}).select().single();
+        try{const rs=await conTimeout(db.auth.refreshSession(),8000);if(rs.data&&rs.data.session)session=rs.data.session;}catch(x){}
+        r=await conTimeout(db.from('movimientos').insert({...row,user_id:session.user.id}).select().single());
       }
       if(r.error)throw r.error;
       // ya está confirmado en la base: lo muestro YA; el refresco corre aparte y si falla NO es error de guardado
@@ -631,8 +638,12 @@ async function editSaldo(id){const a=DATA.accts.find(x=>x.id===id);if(!a)return;
   if(!DEMO&&session){const {error}=await db.from('cuentas').update({saldo:nuevo}).eq('id',id);if(error){a.saldo=prev;banner('No se pudo: '+error.message);return;}}
   banner('Saldo actualizado ✓',true);renderAll();}
 async function delMov(id){if(!confirm('¿Borrar este movimiento?'))return;
-  if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}else{const {error}=await db.from('movimientos').delete().eq('id',id);if(error)return banner('No se pudo borrar: '+error.message);await reload();}
-  banner('Borrado',true);renderAll();
+  try{
+    if(DEMO||!session){DATA.movs=DATA.movs.filter(m=>m.id!==id);}
+    else{const {error}=await conTimeout(db.from('movimientos').delete().eq('id',id));if(error)return banner('No se pudo borrar: '+error.message);
+      DATA.movs=DATA.movs.filter(m=>m.id!==id);reload().then(()=>renderAll()).catch(()=>{});}
+    banner('Borrado',true);renderAll();
+  }catch(e){banner('⚠️ No se pudo borrar: '+(e.message||e));}
 }
 async function reload(){const [a,m,v,comp,rt]=await Promise.all([
     db.from('cuentas').select('*').eq('archivada',false).order('created_at'),
